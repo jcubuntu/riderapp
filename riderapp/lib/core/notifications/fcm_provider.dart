@@ -72,22 +72,26 @@ class NotificationNotifier extends StateNotifier<NotificationState> {
       // Get current permission status
       final permissionStatus = await _fcmService.getPermissionStatus();
 
-      // Set up notification tap callback to use deep link handler
-      _fcmService.notificationHandler.onNotificationTapCallback = _onNotificationTap;
+      // Set up notification tap callback to use deep link handler (if Firebase available)
+      final notificationHandler = _fcmService.notificationHandler;
+      NotificationPayload? pendingNotification;
 
-      // Check for initial message (app opened from notification)
-      final initialMessage = await _fcmService.getInitialMessage();
-      if (initialMessage != null) {
-        _fcmService.notificationHandler.handleInitialMessage(initialMessage);
-      }
+      if (notificationHandler != null) {
+        notificationHandler.onNotificationTapCallback = _onNotificationTap;
 
-      // Get pending notification from handler and route through deep link
-      final pendingNotification =
-          _fcmService.notificationHandler.consumePendingNotification();
+        // Check for initial message (app opened from notification)
+        final initialMessage = await _fcmService.getInitialMessage();
+        if (initialMessage != null) {
+          notificationHandler.handleInitialMessage(initialMessage);
+        }
 
-      if (pendingNotification != null) {
-        // Route through deep link handler for consistent navigation
-        _deepLinkNotifier.handleNotificationPayload(pendingNotification);
+        // Get pending notification from handler and route through deep link
+        pendingNotification = notificationHandler.consumePendingNotification();
+
+        if (pendingNotification != null) {
+          // Route through deep link handler for consistent navigation
+          _deepLinkNotifier.handleNotificationPayload(pendingNotification);
+        }
       }
 
       state = state.copyWith(
@@ -247,10 +251,13 @@ class NotificationNotifier extends StateNotifier<NotificationState> {
       return;
     }
 
-    _fcmService.notificationHandler.onNotificationTapCallback = callback;
+    final notificationHandler = _fcmService.notificationHandler;
+    if (notificationHandler == null) return;
+
+    notificationHandler.onNotificationTapCallback = callback;
 
     // Check for pending notification
-    final pending = _fcmService.notificationHandler.consumePendingNotification();
+    final pending = notificationHandler.consumePendingNotification();
     if (pending != null) {
       callback(pending);
     }
@@ -262,7 +269,7 @@ class NotificationNotifier extends StateNotifier<NotificationState> {
       return;
     }
 
-    _fcmService.notificationHandler.onNotificationTapCallback = null;
+    _fcmService.notificationHandler?.onNotificationTapCallback = null;
   }
 
   /// Set pending notification (for deferred handling)
@@ -347,7 +354,7 @@ class NotificationNotifier extends StateNotifier<NotificationState> {
       return null;
     }
 
-    return _fcmService.notificationHandler.getRouteForNotification(payload);
+    return _fcmService.notificationHandler?.getRouteForNotification(payload);
   }
 }
 

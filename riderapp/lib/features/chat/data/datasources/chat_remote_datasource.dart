@@ -4,6 +4,7 @@ import 'package:dio/dio.dart';
 
 import '../../../../core/constants/api_endpoints.dart';
 import '../../../../core/network/api_client.dart';
+import '../../domain/entities/chat_group.dart';
 import '../../domain/entities/conversation.dart';
 import '../../domain/entities/message.dart';
 import '../../domain/repositories/chat_repository.dart';
@@ -200,5 +201,54 @@ class ChatRemoteDataSource {
     }
 
     return 0;
+  }
+
+  // ============================================================================
+  // ROLE-BASED CHAT GROUPS
+  // ============================================================================
+
+  /// Get list of role-based chat groups accessible by user
+  Future<List<ChatGroup>> getGroups() async {
+    final response = await _apiClient.get(ApiEndpoints.chatGroups);
+
+    if (response.data['success'] == true) {
+      final List<dynamic> data = response.data['data'] as List<dynamic>? ?? [];
+      return data.map((json) => ChatGroup.fromJson(json)).toList();
+    }
+
+    throw DioException(
+      requestOptions: response.requestOptions,
+      message: response.data['message'] ?? 'Failed to fetch groups',
+    );
+  }
+
+  /// Join a role-based chat group
+  Future<Conversation> joinGroup(String groupId) async {
+    final response = await _apiClient.post(
+      ApiEndpoints.joinChatGroup(groupId),
+    );
+
+    if (response.data['success'] == true) {
+      return Conversation.fromJson(response.data['data']);
+    }
+
+    throw DioException(
+      requestOptions: response.requestOptions,
+      message: response.data['message'] ?? 'Failed to join group',
+    );
+  }
+
+  /// Auto-join all accessible chat groups
+  Future<int> autoJoinGroups() async {
+    final response = await _apiClient.post(ApiEndpoints.autoJoinChatGroups);
+
+    if (response.data['success'] == true) {
+      return response.data['data']['joinedCount'] as int? ?? 0;
+    }
+
+    throw DioException(
+      requestOptions: response.requestOptions,
+      message: response.data['message'] ?? 'Failed to auto-join groups',
+    );
   }
 }

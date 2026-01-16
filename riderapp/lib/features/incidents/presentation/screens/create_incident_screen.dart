@@ -1,8 +1,11 @@
+import 'dart:io';
+
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../core/upload/image_picker_helper.dart';
 import '../../domain/entities/incident.dart';
 import '../providers/incidents_provider.dart';
 import '../providers/incidents_state.dart';
@@ -186,8 +189,28 @@ class _CreateIncidentScreenState extends ConsumerState<CreateIncidentScreen> {
     final state = ref.watch(createIncidentProvider);
 
     // Listen for success state
-    ref.listen<CreateIncidentState>(createIncidentProvider, (previous, next) {
+    ref.listen<CreateIncidentState>(createIncidentProvider, (previous, next) async {
       if (next is CreateIncidentSuccess) {
+        // Upload pending attachments if any
+        final pendingFiles = ref.read(pendingAttachmentsProvider).pendingFiles;
+        if (pendingFiles.isNotEmpty && !next.isUpdate) {
+          final uploadResult = await ref
+              .read(attachmentUploadProvider.notifier)
+              .uploadAttachments(next.incident.id, pendingFiles);
+
+          if (uploadResult == null && mounted && context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Incident created, but some attachments failed to upload'),
+                backgroundColor: Colors.orange,
+              ),
+            );
+          }
+        }
+
+        // Clear pending attachments
+        ref.read(pendingAttachmentsProvider.notifier).reset();
+
         // Update lists
         ref.read(myIncidentsListProvider.notifier).addIncidentToList(next.incident);
         if (!next.isUpdate) {
@@ -195,29 +218,33 @@ class _CreateIncidentScreenState extends ConsumerState<CreateIncidentScreen> {
         }
 
         // Show success message
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              next.isUpdate
-                  ? 'Incident updated successfully'
-                  : 'Incident reported successfully',
+        if (mounted && context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                next.isUpdate
+                    ? 'Incident updated successfully'
+                    : 'Incident reported successfully',
+              ),
+              backgroundColor: Colors.green,
             ),
-            backgroundColor: Colors.green,
-          ),
-        );
+          );
 
-        // Navigate back
-        context.pop();
+          // Navigate back
+          context.pop();
+        }
 
         // Reset state
         ref.read(createIncidentProvider.notifier).reset();
       } else if (next is CreateIncidentError) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(next.message),
-            backgroundColor: Colors.red,
-          ),
-        );
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(next.message),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
       }
     });
 
@@ -373,6 +400,10 @@ class _CreateIncidentScreenState extends ConsumerState<CreateIncidentScreen> {
                         alignment: Alignment.centerLeft,
                       ),
                     ),
+                    const SizedBox(height: 24),
+
+                    // Attachments section
+                    _buildAttachmentsSection(),
                     const SizedBox(height: 24),
 
                     // Anonymous toggle
@@ -559,6 +590,308 @@ class _CreateIncidentScreenState extends ConsumerState<CreateIncidentScreen> {
             },
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildAttachmentsSection() {
+    final theme = Theme.of(context);
+    final pendingState = ref.watch(pendingAttachmentsProvider);
+    final pendingNotifier = ref.read(pendingAttachmentsProvider.notifier);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            _buildSectionTitle('incidents.form.attachments'.tr()),
+            Text(
+              '${pendingState.fileCount}/${PendingAttachmentsNotifier.maxAttachments}',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Text(
+          'incidents.form.attachmentsHint'.tr(),
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+          ),
+        ),
+        const SizedBox(height: 12),
+
+        // Attachment previews
+        if (pendingState.hasFiles) ...[
+          SizedBox(
+            height: 100,
+            child: ListView.builder(
+              scrollDirection: Axis.horizontal,
+              itemCount: pendingState.fileCount,
+              itemBuilder: (context, index) {
+                final file = pendingState.pendingFiles[index];
+                return _buildAttachmentPreview(file, index, pendingNotifier);
+              },
+            ),
+          ),
+          const SizedBox(height: 12),
+        ],
+
+        // Add attachment button
+        if (pendingNotifier.canAddMore)
+          OutlinedButton.icon(
+            onPressed: _showImagePickerOptions,
+            icon: const Icon(Icons.add_photo_alternate_outlined),
+            label: Text(pendingState.hasFiles
+                ? 'incidents.form.addMorePhotos'.tr()
+                : 'incidents.form.addPhotos'.tr()),
+            style: OutlinedButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildAttachmentPreview(
+    File file,
+    int index,
+    PendingAttachmentsNotifier notifier,
+  ) {
+    final theme = Theme.of(context);
+
+    return Padding(
+      padding: const EdgeInsets.only(right: 8),
+      child: Stack(
+        children: [
+          Container(
+            width: 100,
+            height: 100,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: theme.colorScheme.outline.withValues(alpha: 0.3),
+              ),
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(11),
+              child: Image.file(
+                file,
+                fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) {
+                  return Container(
+                    color: theme.colorScheme.surfaceContainerHighest,
+                    child: Icon(
+                      Icons.image_not_supported_outlined,
+                      color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ),
+          Positioned(
+            top: 4,
+            right: 4,
+            child: GestureDetector(
+              onTap: () => notifier.removeFileAt(index),
+              child: Container(
+                padding: const EdgeInsets.all(4),
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.error,
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  Icons.close,
+                  size: 14,
+                  color: theme.colorScheme.onError,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _showImagePickerOptions() async {
+    final pendingNotifier = ref.read(pendingAttachmentsProvider.notifier);
+    final remainingSlots = pendingNotifier.remainingSlots;
+
+    if (remainingSlots <= 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('incidents.form.maxAttachmentsReached'.tr()),
+        ),
+      );
+      return;
+    }
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) => _AttachmentPickerSheet(
+        onCameraSelected: () async {
+          Navigator.pop(context);
+          final file = await ImagePickerHelper().pickFromCamera(
+            options: ImagePickerOptions.incident,
+          );
+          if (file != null) {
+            pendingNotifier.addFiles([file]);
+          }
+        },
+        onGallerySelected: () async {
+          Navigator.pop(context);
+          final files = await ImagePickerHelper().pickMultipleImages(
+            options: ImagePickerOptions.incident,
+            limit: remainingSlots,
+          );
+          if (files.isNotEmpty) {
+            pendingNotifier.addFiles(files);
+          }
+        },
+      ),
+    );
+  }
+}
+
+/// Bottom sheet for picking attachments
+class _AttachmentPickerSheet extends StatelessWidget {
+  final VoidCallback onCameraSelected;
+  final VoidCallback onGallerySelected;
+
+  const _AttachmentPickerSheet({
+    required this.onCameraSelected,
+    required this.onGallerySelected,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: colorScheme.surface,
+        borderRadius: const BorderRadius.vertical(
+          top: Radius.circular(28),
+        ),
+      ),
+      child: SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Handle bar
+            Container(
+              margin: const EdgeInsets.only(top: 12),
+              width: 32,
+              height: 4,
+              decoration: BoxDecoration(
+                color: colorScheme.onSurfaceVariant.withValues(alpha: 0.4),
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+
+            // Title
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Text(
+                'incidents.form.addPhotos'.tr(),
+                style: theme.textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+
+            const Divider(height: 1),
+
+            // Camera option
+            _buildOption(
+              context: context,
+              icon: Icons.camera_alt_outlined,
+              label: 'profile.takePhoto'.tr(),
+              onTap: onCameraSelected,
+            ),
+
+            // Gallery option
+            _buildOption(
+              context: context,
+              icon: Icons.photo_library_outlined,
+              label: 'profile.chooseFromGallery'.tr(),
+              onTap: onGallerySelected,
+            ),
+
+            const SizedBox(height: 8),
+
+            // Cancel button
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: SizedBox(
+                width: double.infinity,
+                child: OutlinedButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: Text('common.cancel'.tr()),
+                ),
+              ),
+            ),
+
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildOption({
+    required BuildContext context,
+    required IconData icon,
+    required String label,
+    required VoidCallback onTap,
+  }) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: colorScheme.primaryContainer.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(
+                icon,
+                color: colorScheme.primary,
+                size: 24,
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Text(
+                label,
+                style: theme.textTheme.bodyLarge?.copyWith(
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+            Icon(
+              Icons.chevron_right,
+              color: colorScheme.onSurface.withValues(alpha: 0.5),
+            ),
+          ],
+        ),
       ),
     );
   }

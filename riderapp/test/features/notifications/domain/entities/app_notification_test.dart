@@ -342,7 +342,7 @@ void main() {
   });
 
   group('PaginatedNotifications', () {
-    final testDate = DateTime(2024, 1, 15, 10, 30);
+    // testDate used for reference in testDateString
     final testDateString = '2024-01-15T10:30:00.000';
 
     group('fromJson', () {

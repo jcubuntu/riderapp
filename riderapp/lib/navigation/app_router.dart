@@ -10,6 +10,7 @@ import '../features/auth/presentation/screens/pending_approval_screen.dart';
 import '../features/home/presentation/screens/rider_home_screen.dart';
 import '../features/home/presentation/screens/volunteer_home_screen.dart';
 import '../features/home/presentation/screens/police_home_screen.dart';
+import '../features/home/presentation/screens/commander_home_screen.dart';
 import '../features/home/presentation/screens/admin_home_screen.dart';
 import '../features/home/presentation/screens/super_admin_home_screen.dart';
 import '../features/incidents/presentation/screens/incidents_list_screen.dart';
@@ -45,6 +46,7 @@ abstract class AppRoutes {
   static const String riderHome = '/rider';
   static const String volunteerHome = '/volunteer';
   static const String policeHome = '/police';
+  static const String commanderHome = '/commander';
   static const String adminHome = '/admin';
   static const String superAdminHome = '/super-admin';
 
@@ -163,6 +165,13 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: AppRoutes.policeHome,
         name: 'police-home',
         builder: (context, state) => const PoliceHomeScreen(),
+      ),
+
+      // Commander routes
+      GoRoute(
+        path: AppRoutes.commanderHome,
+        name: 'commander-home',
+        builder: (context, state) => const CommanderHomeScreen(),
       ),
 
       // Admin routes
@@ -367,6 +376,8 @@ String _getHomeRoute(UserRole role) {
       return AppRoutes.volunteerHome;
     case UserRole.police:
       return AppRoutes.policeHome;
+    case UserRole.commander:
+      return AppRoutes.commanderHome;
     case UserRole.admin:
       return AppRoutes.adminHome;
     case UserRole.superAdmin:

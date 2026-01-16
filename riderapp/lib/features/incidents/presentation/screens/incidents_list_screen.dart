@@ -209,7 +209,6 @@ class _IncidentsListScreenState extends ConsumerState<IncidentsListScreen> {
         incidents.isEmpty
             ? IncidentsEmptyState(
                 isMyIncidents: widget.isMyIncidents,
-                onCreatePressed: _navigateToCreateIncident,
               )
             : _buildIncidentsList(incidents, isLoadingMore),
     };

@@ -235,14 +235,21 @@ class MessageBubble extends StatelessWidget {
       );
     }
 
-    final initials = sender.name?.isNotEmpty == true
-        ? sender.name!
-            .split(' ')
-            .take(2)
-            .map((s) => s.isNotEmpty ? s[0] : '')
-            .join()
-            .toUpperCase()
-        : '?';
+    // Try to get initials from name, fallback to phone number, then '?'
+    String initials;
+    if (sender.name?.isNotEmpty == true) {
+      initials = sender.name!
+          .split(' ')
+          .take(2)
+          .map((s) => s.isNotEmpty ? s[0] : '')
+          .join()
+          .toUpperCase();
+    } else if (sender.phone?.isNotEmpty == true) {
+      // Show last 2 digits of phone as fallback
+      initials = sender.phone!.substring(sender.phone!.length - 2);
+    } else {
+      initials = '?';
+    }
 
     return CircleAvatar(
       radius: 16,

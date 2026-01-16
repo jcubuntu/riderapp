@@ -22,7 +22,8 @@
     "yes": "Yes",
     "no": "No",
     "ok": "OK",
-    "remove": "Remove"
+    "remove": "Remove",
+    "viewAll": "View All"
   },
   "auth": {
     "login": "Login",
@@ -82,6 +83,20 @@
       "pendingReports": "Pending Reports",
       "todayIncidents": "Today's Incidents",
       "newMessages": "New Messages"
+    },
+    "commander": {
+      "title": "Commander Dashboard",
+      "welcome": "Welcome, {name}",
+      "subtitle": "Oversee operations and manage your team",
+      "pendingReports": "Pending Reports",
+      "todayIncidents": "Today's Incidents",
+      "pendingApprovals": "Pending Approvals",
+      "totalUsers": "Total Users",
+      "quickActions": "Quick Actions",
+      "viewIncidents": "View Incidents",
+      "approveUsers": "Approve Users",
+      "chat": "Messages",
+      "announcements": "Announcements"
     },
     "admin": {
       "title": "Admin Dashboard",
@@ -205,7 +220,20 @@
     "shareFailed": "Failed to share image",
     "imageLoadFailed": "Failed to load image",
     "download": "Download",
-    "share": "Share"
+    "share": "Share",
+    "groups": "Groups",
+    "joinGroup": "Join",
+    "joined": "Joined",
+    "members": "{} members",
+    "noGroups": "No groups available",
+    "joinError": "Failed to join group",
+    "groupAccess": {
+      "rider": "All users",
+      "volunteer": "Volunteer and above",
+      "police": "Police and above",
+      "commander": "Commander and above",
+      "admin": "Admin only"
+    }
   },
   "announcements": {
     "title": "Announcements",
@@ -247,6 +275,9 @@
       "resolved": "SOS alert has been resolved",
       "helpOnWay": "Help is on the way",
       "shareLocation": "Your location is being shared",
+      "gettingLocation": "Getting location...",
+      "locationReady": "Location ready",
+      "tapToEnableLocation": "Tap to enable location",
       "status": {
         "active": "Active",
         "resolved": "Resolved",

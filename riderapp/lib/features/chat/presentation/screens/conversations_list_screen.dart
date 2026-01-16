@@ -3,13 +3,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../shared/models/user_model.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../../auth/presentation/providers/auth_state.dart';
-import '../providers/chat_provider.dart';
-import '../providers/chat_state.dart';
-import '../widgets/conversation_tile.dart';
+import '../providers/chat_groups_provider.dart';
+import '../widgets/chat_group_tile.dart';
 
-/// Screen for displaying list of conversations
+/// Screen for displaying list of chat groups
 class ConversationsListScreen extends ConsumerStatefulWidget {
   const ConversationsListScreen({super.key});
 
@@ -20,65 +20,46 @@ class ConversationsListScreen extends ConsumerStatefulWidget {
 
 class _ConversationsListScreenState
     extends ConsumerState<ConversationsListScreen> {
-  final _scrollController = ScrollController();
-
   @override
   void initState() {
     super.initState();
-    _scrollController.addListener(_onScroll);
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref.read(conversationsProvider.notifier).loadConversations();
+      ref.read(chatGroupsProvider.notifier).loadGroups();
     });
   }
 
-  @override
-  void dispose() {
-    _scrollController.dispose();
-    super.dispose();
-  }
-
-  void _onScroll() {
-    if (_scrollController.position.pixels >=
-        _scrollController.position.maxScrollExtent - 200) {
-      ref.read(conversationsProvider.notifier).loadMore();
-    }
-  }
-
-  String _getCurrentUserId() {
+  UserRole _getCurrentUserRole() {
     final authState = ref.read(authProvider);
     if (authState is AuthAuthenticated) {
-      return authState.user.id;
+      return authState.user.role;
     }
-    return '';
+    return UserRole.rider;
   }
 
   @override
   Widget build(BuildContext context) {
-    final state = ref.watch(conversationsProvider);
+    final state = ref.watch(chatGroupsProvider);
+    final currentUserRole = _getCurrentUserRole();
 
     return Scaffold(
       appBar: AppBar(
-        title: Text('chat.conversations'.tr()),
+        title: Text('chat.groups'.tr()),
       ),
       body: RefreshIndicator(
         onRefresh: () async {
-          await ref
-              .read(conversationsProvider.notifier)
-              .loadConversations(refresh: true);
+          await ref.read(chatGroupsProvider.notifier).refresh();
         },
-        child: _buildBody(state),
+        child: _buildGroupsBody(state, currentUserRole),
       ),
     );
   }
 
-  Widget _buildBody(ConversationsState state) {
-    final currentUserId = _getCurrentUserId();
-
+  Widget _buildGroupsBody(ChatGroupsState state, UserRole currentUserRole) {
     return switch (state) {
-      ConversationsInitial() || ConversationsLoading() => const Center(
+      ChatGroupsInitial() || ChatGroupsLoading() => const Center(
           child: CircularProgressIndicator(),
         ),
-      ConversationsError(message: final message) => Center(
+      ChatGroupsError(message: final message) => Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
@@ -101,9 +82,7 @@ class _ConversationsListScreenState
               const SizedBox(height: 24),
               ElevatedButton.icon(
                 onPressed: () {
-                  ref
-                      .read(conversationsProvider.notifier)
-                      .loadConversations(refresh: true);
+                  ref.read(chatGroupsProvider.notifier).loadGroups();
                 },
                 icon: const Icon(Icons.refresh),
                 label: Text('common.retry'.tr()),
@@ -111,119 +90,63 @@ class _ConversationsListScreenState
             ],
           ),
         ),
-      ConversationsLoaded(
-        conversations: final conversations,
-        isLoadingMore: final isLoadingMore,
-      ) =>
-        conversations.isEmpty
+      ChatGroupsLoaded(groups: final groups, joiningGroupId: final joiningId) =>
+        groups.isEmpty
             ? Center(
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Icon(
-                      Icons.chat_bubble_outline,
+                      Icons.group_outlined,
                       size: 64,
                       color: Theme.of(context).colorScheme.outline,
                     ),
                     const SizedBox(height: 16),
                     Text(
-                      'chat.noConversations'.tr(),
+                      'chat.noGroups'.tr(),
                       style: Theme.of(context).textTheme.titleMedium,
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'chat.startConversation'.tr(),
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            color: Theme.of(context).colorScheme.onSurfaceVariant,
-                          ),
                     ),
                   ],
                 ),
               )
-            : ListView.separated(
-                controller: _scrollController,
+            : ListView.builder(
                 padding: const EdgeInsets.symmetric(vertical: 8),
-                itemCount: conversations.length + (isLoadingMore ? 1 : 0),
-                separatorBuilder: (context, index) => const Divider(
-                  height: 1,
-                  indent: 72,
-                ),
+                itemCount: groups.length,
                 itemBuilder: (context, index) {
-                  if (index == conversations.length) {
-                    return const Center(
-                      child: Padding(
-                        padding: EdgeInsets.all(16),
-                        child: CircularProgressIndicator(),
-                      ),
-                    );
-                  }
-
-                  final conversation = conversations[index];
-                  return ConversationTile(
-                    conversation: conversation,
-                    currentUserId: currentUserId,
-                    onTap: () {
-                      context.push('/chat/${conversation.id}');
-                    },
-                    onLongPress: () {
-                      _showConversationOptions(context, conversation);
-                    },
+                  final group = groups[index];
+                  return ChatGroupTile(
+                    group: group,
+                    currentUserRole: currentUserRole,
+                    isJoining: joiningId == group.id,
+                    onJoin: () => _joinGroup(group.id),
+                    onTap: group.isJoined
+                        ? () => context.push('/chat/${group.id}')
+                        : null,
                   );
                 },
               ),
     };
   }
 
-  void _showConversationOptions(
-      BuildContext context, dynamic conversation) {
-    showModalBottomSheet(
-      context: context,
-      builder: (context) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              leading: const Icon(Icons.delete_outline, color: Colors.red),
-              title: Text(
-                'chat.deleteConversation'.tr(),
-                style: const TextStyle(color: Colors.red),
-              ),
-              onTap: () {
-                Navigator.pop(context);
-                _confirmDelete(conversation);
-              },
-            ),
-          ],
-        ),
-      ),
-    );
-  }
+  Future<void> _joinGroup(String groupId) async {
+    try {
+      final conversation = await ref
+          .read(chatGroupsProvider.notifier)
+          .joinGroup(groupId);
 
-  void _confirmDelete(dynamic conversation) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text('chat.deleteConversation'.tr()),
-        content: Text('chat.deleteConfirm'.tr()),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text('common.cancel'.tr()),
+      if (conversation != null && mounted) {
+        // Navigate to the group chat
+        context.push('/chat/${conversation.id}');
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('chat.joinError'.tr()),
+            backgroundColor: Theme.of(context).colorScheme.error,
           ),
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-              ref
-                  .read(conversationsProvider.notifier)
-                  .removeConversation(conversation.id);
-            },
-            child: Text(
-              'common.delete'.tr(),
-              style: const TextStyle(color: Colors.red),
-            ),
-          ),
-        ],
-      ),
-    );
+        );
+      }
+    }
   }
 }

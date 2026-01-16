@@ -397,7 +397,7 @@ abstract final class AppTheme {
         backgroundColor: AppColors.primary,
         foregroundColor: AppColors.onPrimary,
         splashColor: AppColors.primaryLight,
-        shape: CircleBorder(),
+        shape: StadiumBorder(),
       );
 
   static FloatingActionButtonThemeData get _darkFloatingActionButtonTheme =>
@@ -409,7 +409,7 @@ abstract final class AppTheme {
         backgroundColor: AppColors.primaryLight,
         foregroundColor: AppColors.primaryDark,
         splashColor: AppColors.primary,
-        shape: CircleBorder(),
+        shape: StadiumBorder(),
       );
 
   // ============================================================================

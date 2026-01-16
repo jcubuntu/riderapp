@@ -22,7 +22,8 @@
     "yes": "ใช่",
     "no": "ไม่",
     "ok": "ตกลง",
-    "remove": "ลบ"
+    "remove": "ลบ",
+    "viewAll": "ดูทั้งหมด"
   },
   "auth": {
     "login": "เข้าสู่ระบบ",
@@ -82,6 +83,20 @@
       "pendingReports": "รายงานรอดำเนินการ",
       "todayIncidents": "เหตุการณ์วันนี้",
       "newMessages": "ข้อความใหม่"
+    },
+    "commander": {
+      "title": "แดชบอร์ดผู้บังคับบัญชา",
+      "welcome": "สวัสดี, {name}",
+      "subtitle": "ดูแลการปฏิบัติงานและจัดการทีม",
+      "pendingReports": "รายงานรอดำเนินการ",
+      "todayIncidents": "เหตุการณ์วันนี้",
+      "pendingApprovals": "รอการอนุมัติ",
+      "totalUsers": "ผู้ใช้ทั้งหมด",
+      "quickActions": "การดำเนินการด่วน",
+      "viewIncidents": "ดูเหตุการณ์",
+      "approveUsers": "อนุมัติผู้ใช้",
+      "chat": "ข้อความ",
+      "announcements": "ประกาศ"
     },
     "admin": {
       "title": "แดชบอร์ดผู้ดูแล",
@@ -205,7 +220,20 @@
     "shareFailed": "แชร์รูปภาพไม่สำเร็จ",
     "imageLoadFailed": "โหลดรูปภาพไม่สำเร็จ",
     "download": "ดาวน์โหลด",
-    "share": "แชร์"
+    "share": "แชร์",
+    "groups": "กลุ่ม",
+    "joinGroup": "เข้าร่วม",
+    "joined": "เข้าร่วมแล้ว",
+    "members": "{} สมาชิก",
+    "noGroups": "ไม่มีกลุ่มที่พร้อมใช้งาน",
+    "joinError": "เข้าร่วมกลุ่มไม่สำเร็จ",
+    "groupAccess": {
+      "rider": "ผู้ใช้ทุกคน",
+      "volunteer": "อส. ขึ้นไป",
+      "police": "ตำรวจขึ้นไป",
+      "commander": "ผู้บังคับบัญชาขึ้นไป",
+      "admin": "แอดมินเท่านั้น"
+    }
   },
   "announcements": {
     "title": "ประกาศ",
@@ -247,6 +275,9 @@
       "resolved": "การแจ้ง SOS ได้รับการแก้ไขแล้ว",
       "helpOnWay": "ความช่วยเหลือกำลังมา",
       "shareLocation": "กำลังแชร์ตำแหน่งของคุณ",
+      "gettingLocation": "กำลังหาตำแหน่ง...",
+      "locationReady": "พร้อมส่งตำแหน่ง",
+      "tapToEnableLocation": "แตะเพื่อเปิดใช้ตำแหน่ง",
       "status": {
         "active": "กำลังทำงาน",
         "resolved": "แก้ไขแล้ว",

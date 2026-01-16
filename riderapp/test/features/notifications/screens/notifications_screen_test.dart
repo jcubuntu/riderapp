@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:easy_localization/easy_localization.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:riderapp/features/notifications/presentation/screens/notifications_screen.dart';
 import 'package:riderapp/features/notifications/presentation/widgets/notification_tile.dart';
@@ -10,88 +12,127 @@ import 'package:riderapp/features/notifications/domain/entities/app_notification
 import '../../../helpers/widget_test_helpers.dart';
 
 void main() {
+  // Initialize test environment before all tests
+  setUpAll(() async {
+    // Initialize Flutter bindings for tests
+    TestWidgetsFlutterBinding.ensureInitialized();
+    // Initialize SharedPreferences with mock values
+    SharedPreferences.setMockInitialValues({});
+    // Initialize EasyLocalization
+    await EasyLocalization.ensureInitialized();
+  });
+
+  /// Helper function to pump widget and wait for EasyLocalization to load.
+  /// Uses runAsync to properly handle asynchronous asset loading.
+  Future<void> pumpAndWait(WidgetTester tester, Widget widget) async {
+    await tester.runAsync(() async {
+      await tester.pumpWidget(widget);
+      // Allow time for EasyLocalization to load assets
+      await Future.delayed(const Duration(milliseconds: 500));
+    });
+    // Pump frames to render the UI
+    for (var i = 0; i < 20; i++) {
+      await tester.pump(const Duration(milliseconds: 50));
+    }
+  }
+
   group('NotificationsScreen', () {
     Widget buildNotificationsScreen() {
       return ProviderScope(
-        child: MaterialApp(
-          home: const NotificationsScreen(),
-          localizationsDelegates: const [
-            DefaultMaterialLocalizations.delegate,
-            DefaultWidgetsLocalizations.delegate,
-          ],
+        child: EasyLocalization(
+          supportedLocales: const [Locale('en'), Locale('th')],
+          path: 'assets/translations',
+          fallbackLocale: const Locale('en'),
+          useOnlyLangCode: true,
+          child: Builder(
+            builder: (context) {
+              return MaterialApp(
+                home: const NotificationsScreen(),
+                locale: context.locale,
+                localizationsDelegates: context.localizationDelegates,
+                supportedLocales: context.supportedLocales,
+              );
+            },
+          ),
         ),
       );
     }
 
+    // ignore: unused_element
     Widget buildNotificationsScreenWithNavigation() {
       return ProviderScope(
-        child: MaterialApp.router(
-          routerConfig: GoRouter(
-            initialLocation: '/notifications',
-            routes: [
-              GoRoute(
-                path: '/notifications',
-                builder: (context, state) => const NotificationsScreen(),
-              ),
-              GoRoute(
-                path: '/chat/:id',
-                builder: (context, state) => Scaffold(
-                  body: Center(
-                      child: Text(
-                          'Chat Detail Screen ${state.pathParameters['id']}')),
+        child: EasyLocalization(
+          supportedLocales: const [Locale('en'), Locale('th')],
+          path: 'assets/translations',
+          fallbackLocale: const Locale('en'),
+          useOnlyLangCode: true,
+          child: Builder(
+            builder: (context) {
+              return MaterialApp.router(
+                routerConfig: GoRouter(
+                  initialLocation: '/notifications',
+                  routes: [
+                    GoRoute(
+                      path: '/notifications',
+                      builder: (context, state) => const NotificationsScreen(),
+                    ),
+                    GoRoute(
+                      path: '/chat/:id',
+                      builder: (context, state) => Scaffold(
+                        body: Center(
+                            child: Text(
+                                'Chat Detail Screen ${state.pathParameters['id']}')),
+                      ),
+                    ),
+                    GoRoute(
+                      path: '/incidents/:id',
+                      builder: (context, state) => Scaffold(
+                        body: Center(
+                            child: Text(
+                                'Incident Detail Screen ${state.pathParameters['id']}')),
+                      ),
+                    ),
+                    GoRoute(
+                      path: '/announcements/:id',
+                      builder: (context, state) => Scaffold(
+                        body: Center(
+                            child: Text(
+                                'Announcement Detail Screen ${state.pathParameters['id']}')),
+                      ),
+                    ),
+                    GoRoute(
+                      path: '/profile',
+                      builder: (context, state) => const Scaffold(
+                        body: Center(child: Text('Profile Screen')),
+                      ),
+                    ),
+                  ],
                 ),
-              ),
-              GoRoute(
-                path: '/incidents/:id',
-                builder: (context, state) => Scaffold(
-                  body: Center(
-                      child: Text(
-                          'Incident Detail Screen ${state.pathParameters['id']}')),
-                ),
-              ),
-              GoRoute(
-                path: '/announcements/:id',
-                builder: (context, state) => Scaffold(
-                  body: Center(
-                      child: Text(
-                          'Announcement Detail Screen ${state.pathParameters['id']}')),
-                ),
-              ),
-              GoRoute(
-                path: '/profile',
-                builder: (context, state) => const Scaffold(
-                  body: Center(child: Text('Profile Screen')),
-                ),
-              ),
-            ],
+                locale: context.locale,
+                localizationsDelegates: context.localizationDelegates,
+                supportedLocales: context.supportedLocales,
+              );
+            },
           ),
-          localizationsDelegates: const [
-            DefaultMaterialLocalizations.delegate,
-            DefaultWidgetsLocalizations.delegate,
-          ],
         ),
       );
     }
 
     group('Rendering', () {
       testWidgets('should render notifications screen', (tester) async {
-        await tester.pumpWidget(buildNotificationsScreen());
-        // Don't pumpAndSettle since screen will try to load
-        await tester.pump();
+        await pumpAndWait(tester, buildNotificationsScreen());
 
         expect(find.byType(NotificationsScreen), findsOneWidget);
       });
 
       testWidgets('should show app bar with title', (tester) async {
-        await tester.pumpWidget(buildNotificationsScreen());
-        await tester.pump();
+        await pumpAndWait(tester, buildNotificationsScreen());
 
         expect(find.byType(AppBar), findsOneWidget);
       });
 
       testWidgets('should show loading indicator initially', (tester) async {
-        await tester.pumpWidget(buildNotificationsScreen());
-        await tester.pump();
+        await pumpAndWait(tester, buildNotificationsScreen());
 
         // Screen tries to load notifications, might show loading indicator
         expect(find.byType(NotificationsScreen), findsOneWidget);
@@ -100,9 +141,7 @@ void main() {
 
     group('Empty State', () {
       testWidgets('should show empty icon when no notifications', (tester) async {
-        await tester.pumpWidget(buildNotificationsScreen());
-        // Let the loading complete
-        await tester.pump(const Duration(seconds: 1));
+        await pumpAndWait(tester, buildNotificationsScreen());
 
         // The screen may show empty state with specific icon
         // Depends on API response, but screen should not crash
@@ -112,9 +151,7 @@ void main() {
 
     group('Error Handling', () {
       testWidgets('should not crash on screen load', (tester) async {
-        await tester.pumpWidget(buildNotificationsScreen());
-        await tester.pump();
-        await tester.pump(const Duration(milliseconds: 500));
+        await pumpAndWait(tester, buildNotificationsScreen());
 
         // Screen should be present
         expect(find.byType(NotificationsScreen), findsOneWidget);
@@ -123,8 +160,7 @@ void main() {
 
     group('Pull to Refresh', () {
       testWidgets('should have scrollable content', (tester) async {
-        await tester.pumpWidget(buildNotificationsScreen());
-        await tester.pump();
+        await pumpAndWait(tester, buildNotificationsScreen());
 
         // Should be able to scroll (RefreshIndicator wraps content)
         expect(find.byType(NotificationsScreen), findsOneWidget);
@@ -148,7 +184,9 @@ void main() {
             ],
           ),
         );
-        await tester.pumpAndSettle();
+        // Use controlled pump instead of pumpAndSettle
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 100));
 
         expect(find.byIcon(Icons.chat_bubble_outline), findsOneWidget);
       });
@@ -169,7 +207,9 @@ void main() {
             ],
           ),
         );
-        await tester.pumpAndSettle();
+        // Use controlled pump instead of pumpAndSettle
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 100));
 
         expect(find.byIcon(Icons.warning_amber_outlined), findsOneWidget);
       });
@@ -190,7 +230,9 @@ void main() {
             ],
           ),
         );
-        await tester.pumpAndSettle();
+        // Use controlled pump instead of pumpAndSettle
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 100));
 
         expect(find.byIcon(Icons.sos), findsOneWidget);
       });
@@ -213,7 +255,9 @@ void main() {
             ],
           ),
         );
-        await tester.pumpAndSettle();
+        // Use controlled pump instead of pumpAndSettle
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 100));
 
         expect(find.byIcon(Icons.campaign_outlined), findsOneWidget);
       });
@@ -235,7 +279,9 @@ void main() {
             ],
           ),
         );
-        await tester.pumpAndSettle();
+        // Use controlled pump instead of pumpAndSettle
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 100));
 
         expect(find.byIcon(Icons.verified_user_outlined), findsOneWidget);
       });
@@ -258,7 +304,9 @@ void main() {
             ],
           ),
         );
-        await tester.pumpAndSettle();
+        // Use controlled pump instead of pumpAndSettle
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 100));
 
         expect(find.byIcon(Icons.info_outline), findsOneWidget);
       });
@@ -283,7 +331,9 @@ void main() {
             ],
           ),
         );
-        await tester.pumpAndSettle();
+        // Use controlled pump instead of pumpAndSettle
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 100));
 
         await tester.tap(find.byType(InkWell));
         await tester.pump();
@@ -309,14 +359,19 @@ void main() {
             ],
           ),
         );
-        await tester.pumpAndSettle();
+        // Use controlled pump instead of pumpAndSettle
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 100));
 
         // Swipe to dismiss
         await tester.drag(
           find.byType(Dismissible),
           const Offset(-500, 0),
         );
-        await tester.pumpAndSettle();
+        // Pump multiple frames to allow dismiss animation to complete
+        for (var i = 0; i < 10; i++) {
+          await tester.pump(const Duration(milliseconds: 50));
+        }
 
         expect(dismissed, isTrue);
       });
@@ -338,7 +393,9 @@ void main() {
             ],
           ),
         );
-        await tester.pumpAndSettle();
+        // Use controlled pump instead of pumpAndSettle
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 100));
 
         // Start swiping
         await tester.drag(
@@ -370,7 +427,9 @@ void main() {
             ],
           ),
         );
-        await tester.pumpAndSettle();
+        // Use controlled pump instead of pumpAndSettle
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 100));
 
         // Notification tile should render
         expect(find.byType(NotificationTile), findsOneWidget);
@@ -396,7 +455,9 @@ void main() {
             ],
           ),
         );
-        await tester.pumpAndSettle();
+        // Use controlled pump instead of pumpAndSettle
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 100));
 
         expect(find.byIcon(Icons.chevron_right), findsOneWidget);
       });
@@ -420,7 +481,9 @@ void main() {
             ],
           ),
         );
-        await tester.pumpAndSettle();
+        // Use controlled pump instead of pumpAndSettle
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 100));
 
         expect(find.byIcon(Icons.chevron_right), findsNothing);
       });
@@ -444,7 +507,9 @@ void main() {
             ],
           ),
         );
-        await tester.pumpAndSettle();
+        // Use controlled pump instead of pumpAndSettle
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 100));
 
         expect(find.byType(CircularProgressIndicator), findsOneWidget);
       });

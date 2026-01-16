@@ -88,16 +88,28 @@ class Message extends Equatable {
   bool get hasAttachment => attachmentUrl != null && attachmentUrl!.isNotEmpty;
 
   factory Message.fromJson(Map<String, dynamic> json) {
+    // Handle sender - can be nested object or flat fields
+    MessageSender sender;
+    if (json['sender'] != null) {
+      sender = MessageSender.fromJson(json['sender'] as Map<String, dynamic>);
+    } else {
+      // API returns flat fields: senderId, senderName, senderAvatar
+      sender = MessageSender(
+        id: json['sender_id'] as String? ?? json['senderId'] as String? ?? '',
+        name: json['sender_name'] as String? ?? json['senderName'] as String?,
+        avatarUrl: json['sender_avatar'] as String? ?? json['senderAvatar'] as String?,
+      );
+    }
+
     return Message(
-      id: json['id'] as String,
+      id: json['id'] as String? ?? '',
       conversationId: json['conversation_id'] as String? ??
           json['conversationId'] as String? ??
           '',
-      sender: json['sender'] != null
-          ? MessageSender.fromJson(json['sender'] as Map<String, dynamic>)
-          : MessageSender(id: json['sender_id'] as String? ?? ''),
+      sender: sender,
       content: json['content'] as String? ?? '',
-      type: MessageType.fromString(json['type'] as String? ?? 'text'),
+      type: MessageType.fromString(
+          json['type'] as String? ?? json['messageType'] as String? ?? json['message_type'] as String? ?? 'text'),
       attachmentUrl:
           json['attachment_url'] as String? ?? json['attachmentUrl'] as String?,
       attachmentName: json['attachment_name'] as String? ??
@@ -113,7 +125,9 @@ class Message extends Equatable {
               ? DateTime.parse(json['sentAt'] as String)
               : json['created_at'] != null
                   ? DateTime.parse(json['created_at'] as String)
-                  : DateTime.now(),
+                  : json['createdAt'] != null
+                      ? DateTime.parse(json['createdAt'] as String)
+                      : DateTime.now(),
       readAt: json['read_at'] != null
           ? DateTime.parse(json['read_at'] as String)
           : json['readAt'] != null
@@ -207,8 +221,10 @@ class PaginatedMessages extends Equatable {
     final pagination = json['pagination'] as Map<String, dynamic>? ?? {};
 
     return PaginatedMessages(
-      messages:
-          data.map((e) => Message.fromJson(e as Map<String, dynamic>)).toList(),
+      messages: data
+          .where((e) => e != null)
+          .map((e) => Message.fromJson(e as Map<String, dynamic>))
+          .toList(),
       total: pagination['total'] as int? ?? 0,
       page: pagination['page'] as int? ?? 1,
       limit: pagination['limit'] as int? ?? 20,

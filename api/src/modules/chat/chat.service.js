@@ -255,6 +255,78 @@ const getUnreadCount = async (userId) => {
   };
 };
 
+// ============= Role-Based Group Services =============
+
+/**
+ * Get role-based chat groups accessible by user
+ * @param {Object} currentUser - Current user
+ * @returns {Promise<Array>}
+ */
+const getRoleBasedGroups = async (currentUser) => {
+  const groups = await chatRepository.findRoleBasedGroups(currentUser.role);
+
+  // Check membership for each group
+  const groupsWithMembership = await Promise.all(
+    groups.map(async (group) => {
+      const isJoined = await chatRepository.isParticipant(group.id, currentUser.id);
+      return {
+        id: group.id,
+        type: group.type,
+        title: group.title,
+        minimumRole: group.minimum_role,
+        participantCount: Number(group.participant_count || 0),
+        isJoined,
+        createdAt: group.created_at,
+        updatedAt: group.updated_at,
+      };
+    })
+  );
+
+  return groupsWithMembership;
+};
+
+/**
+ * Join a role-based chat group
+ * @param {string} conversationId - Conversation UUID
+ * @param {Object} currentUser - Current user
+ * @returns {Promise<Object>}
+ */
+const joinRoleBasedGroup = async (conversationId, currentUser) => {
+  // Check if it's a role-based group
+  const isRoleBased = await chatRepository.isRoleBasedGroup(conversationId);
+  if (!isRoleBased) {
+    throw new Error('NOT_A_ROLE_BASED_GROUP');
+  }
+
+  // Check if user has access
+  const hasAccess = await chatRepository.hasRoleBasedGroupAccess(conversationId, currentUser.role);
+  if (!hasAccess) {
+    throw new Error('INSUFFICIENT_ROLE');
+  }
+
+  // Join the group
+  await chatRepository.joinRoleBasedGroup(conversationId, currentUser.id);
+
+  // Return the conversation
+  const conversation = await chatRepository.findConversationByIdWithParticipants(conversationId);
+  return formatConversationWithParticipants(conversation);
+};
+
+/**
+ * Auto-join user to all accessible role-based groups
+ * @param {Object} currentUser - Current user
+ * @returns {Promise<Object>}
+ */
+const autoJoinAllGroups = async (currentUser) => {
+  const joinedCount = await chatRepository.autoJoinRoleBasedGroups(currentUser.id, currentUser.role);
+  const groups = await getRoleBasedGroups(currentUser);
+
+  return {
+    joinedCount,
+    groups,
+  };
+};
+
 // ============= Helper Functions =============
 
 /**
@@ -366,4 +438,8 @@ module.exports = {
   getMessages,
   sendMessage,
   getUnreadCount,
+  // Role-based group services
+  getRoleBasedGroups,
+  joinRoleBasedGroup,
+  autoJoinAllGroups,
 };

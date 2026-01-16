@@ -206,6 +206,8 @@ class RiderMapState extends State<RiderMap> {
         return 'Volunteer';
       case 'police':
         return 'Police';
+      case 'commander':
+        return 'Commander';
       case 'admin':
         return 'Admin';
       case 'super_admin':

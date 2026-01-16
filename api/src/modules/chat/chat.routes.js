@@ -19,6 +19,11 @@ const {
  *
  * All routes require authentication
  *
+ * Role-Based Group Endpoints:
+ *   GET    /chat/groups                     - List role-based groups accessible by user
+ *   POST   /chat/groups/:id/join            - Join a role-based group
+ *   POST   /chat/groups/auto-join           - Auto-join all accessible groups
+ *
  * Conversation Endpoints:
  *   GET    /chat/conversations              - List user's conversations
  *   POST   /chat/conversations              - Create new conversation
@@ -33,6 +38,43 @@ const {
  * Unread Count:
  *   GET    /chat/unread-count               - Get total unread message count
  */
+
+// ============= Role-Based Group Routes =============
+
+/**
+ * @route   GET /api/v1/chat/groups
+ * @desc    List role-based chat groups accessible by current user
+ * @access  Any authenticated user
+ */
+router.get(
+  '/groups',
+  authenticate,
+  chatController.getRoleBasedGroups
+);
+
+/**
+ * @route   POST /api/v1/chat/groups/auto-join
+ * @desc    Auto-join user to all accessible role-based groups
+ * @access  Any authenticated user
+ */
+router.post(
+  '/groups/auto-join',
+  authenticate,
+  chatController.autoJoinAllGroups
+);
+
+/**
+ * @route   POST /api/v1/chat/groups/:id/join
+ * @desc    Join a specific role-based chat group
+ * @access  Any authenticated user with sufficient role
+ * @params  {id} - Conversation UUID
+ */
+router.post(
+  '/groups/:id/join',
+  authenticate,
+  validate(conversationIdSchema, 'params'),
+  chatController.joinRoleBasedGroup
+);
 
 // ============= Unread Count Route =============
 

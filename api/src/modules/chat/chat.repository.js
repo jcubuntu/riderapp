@@ -491,6 +491,131 @@ const getUnreadCountPerConversation = async (userId) => {
   return db.query(sql, [userId, userId]);
 };
 
+// ============= Role-Based Group Functions =============
+
+/**
+ * Role hierarchy levels
+ */
+const ROLE_LEVELS = {
+  rider: 1,
+  volunteer: 2,
+  police: 3,
+  commander: 4,
+  admin: 5,
+  super_admin: 6,
+};
+
+/**
+ * Get role level
+ * @param {string} role - Role name
+ * @returns {number} Role level
+ */
+const getRoleLevel = (role) => ROLE_LEVELS[role] || 0;
+
+/**
+ * Find role-based groups accessible by user's role
+ * @param {string} userRole - User's role
+ * @returns {Promise<Array>}
+ */
+const findRoleBasedGroups = async (userRole) => {
+  const userLevel = getRoleLevel(userRole);
+
+  // Get all role-based groups where user's role level >= minimum role level
+  const sql = `
+    SELECT
+      c.id, c.type, c.title, c.minimum_role, c.created_at, c.updated_at,
+      (SELECT COUNT(*) FROM conversation_participants cp WHERE cp.conversation_id = c.id AND cp.left_at IS NULL) as participant_count
+    FROM conversations c
+    WHERE c.minimum_role IS NOT NULL
+      AND c.status = 'active'
+    ORDER BY
+      CASE c.minimum_role
+        WHEN 'rider' THEN 1
+        WHEN 'volunteer' THEN 2
+        WHEN 'police' THEN 3
+        WHEN 'commander' THEN 4
+        WHEN 'admin' THEN 5
+        WHEN 'super_admin' THEN 6
+      END ASC
+  `;
+
+  const groups = await db.query(sql);
+
+  // Filter groups by user's role level
+  return groups.filter(group => {
+    const groupLevel = getRoleLevel(group.minimum_role);
+    return userLevel >= groupLevel;
+  });
+};
+
+/**
+ * Join user to a role-based group
+ * @param {string} conversationId - Conversation UUID
+ * @param {string} userId - User UUID
+ * @returns {Promise<Object>}
+ */
+const joinRoleBasedGroup = async (conversationId, userId) => {
+  // Check if already a participant
+  const existing = await findParticipant(conversationId, userId);
+  if (existing) {
+    return existing;
+  }
+
+  return addParticipant(conversationId, userId, 'member');
+};
+
+/**
+ * Auto-join user to all accessible role-based groups
+ * @param {string} userId - User UUID
+ * @param {string} userRole - User's role
+ * @returns {Promise<number>} Number of groups joined
+ */
+const autoJoinRoleBasedGroups = async (userId, userRole) => {
+  const groups = await findRoleBasedGroups(userRole);
+  let joinedCount = 0;
+
+  for (const group of groups) {
+    const isAlreadyMember = await isParticipant(group.id, userId);
+    if (!isAlreadyMember) {
+      await addParticipant(group.id, userId, 'member');
+      joinedCount++;
+    }
+  }
+
+  return joinedCount;
+};
+
+/**
+ * Check if a conversation is a role-based group
+ * @param {string} conversationId - Conversation UUID
+ * @returns {Promise<boolean>}
+ */
+const isRoleBasedGroup = async (conversationId) => {
+  const sql = `SELECT minimum_role FROM conversations WHERE id = ? AND minimum_role IS NOT NULL`;
+  const result = await db.queryOne(sql, [conversationId]);
+  return !!result;
+};
+
+/**
+ * Check if user has access to a role-based group
+ * @param {string} conversationId - Conversation UUID
+ * @param {string} userRole - User's role
+ * @returns {Promise<boolean>}
+ */
+const hasRoleBasedGroupAccess = async (conversationId, userRole) => {
+  const sql = `SELECT minimum_role FROM conversations WHERE id = ? AND minimum_role IS NOT NULL`;
+  const result = await db.queryOne(sql, [conversationId]);
+
+  if (!result) {
+    return false; // Not a role-based group
+  }
+
+  const userLevel = getRoleLevel(userRole);
+  const groupLevel = getRoleLevel(result.minimum_role);
+
+  return userLevel >= groupLevel;
+};
+
 module.exports = {
   // Conversation operations
   findConversationsByUser,
@@ -514,4 +639,12 @@ module.exports = {
   deleteMessage,
   getUnreadCountForUser,
   getUnreadCountPerConversation,
+  // Role-based group operations
+  findRoleBasedGroups,
+  joinRoleBasedGroup,
+  autoJoinRoleBasedGroups,
+  isRoleBasedGroup,
+  hasRoleBasedGroupAccess,
+  getRoleLevel,
+  ROLE_LEVELS,
 };

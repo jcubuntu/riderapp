@@ -22,9 +22,10 @@ This document provides a comprehensive implementation plan for completing the Ri
 |-----------|--------|---------|
 | **Authentication (API)** | Done | Login, register, refresh, logout, sessions |
 | **Authentication (Flutter)** | Done | Login screen, register screen, auth provider |
-| **User Roles** | Done | 5 roles (rider, volunteer, police, admin, super_admin) |
-| **Role Hierarchy** | Done | Level 1-5 with permissions matrix |
-| **Home Screens** | Done | All 5 role-specific home screens |
+| **User Roles** | Done | 6 roles (rider, volunteer, police, commander, admin, super_admin) |
+| **Role Hierarchy** | Done | Level 1-6 with permissions matrix |
+| **Home Screens** | Done | All 6 role-specific home screens |
+| **Role-Based Chat Groups** | Done | 5 groups (General, อส., Police, Commander, Admin) |
 | **Affiliations Module** | Done | CRUD operations, admin management |
 | **Database Migrations** | Done | All 13 migrations for core tables |
 | **Navigation** | Done | GoRouter with role-based routing |
@@ -242,10 +243,14 @@ api/src/modules/chat/
 | GET | `/chat/conversations` | List conversations | any |
 | POST | `/chat/conversations` | Create conversation | any |
 | GET | `/chat/conversations/:id` | Get conversation | participant |
+| DELETE | `/chat/conversations/:id` | Leave conversation | participant |
+| PATCH | `/chat/conversations/:id/read` | Mark as read | participant |
 | GET | `/chat/conversations/:id/messages` | Get messages | participant |
 | POST | `/chat/conversations/:id/messages` | Send message | participant |
-| PATCH | `/chat/conversations/:id/read` | Mark as read | participant |
 | GET | `/chat/unread-count` | Get unread count | any |
+| GET | `/chat/groups` | List role-based groups | any |
+| POST | `/chat/groups/auto-join` | Auto-join all accessible groups | any |
+| POST | `/chat/groups/:id/join` | Join specific group | role-based |
 
 **Socket Events:**
 - `message:new` - New message received
@@ -782,4 +787,4 @@ flutter pub run build_runner build --delete-conflicting-outputs
 
 ---
 
-*Last Updated: 2026-01-15*
+*Last Updated: 2026-01-16*

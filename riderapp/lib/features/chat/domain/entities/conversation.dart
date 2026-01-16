@@ -124,7 +124,7 @@ class Conversation extends Equatable {
     final participantsJson = json['participants'] as List<dynamic>? ?? [];
 
     return Conversation(
-      id: json['id'] as String,
+      id: json['id'] as String? ?? '',
       title: json['title'] as String?,
       type: ConversationType.fromString(json['type'] as String? ?? 'direct'),
       participants: participantsJson
@@ -225,6 +225,7 @@ class PaginatedConversations extends Equatable {
 
     return PaginatedConversations(
       conversations: data
+          .where((e) => e != null)
           .map((e) => Conversation.fromJson(e as Map<String, dynamic>))
           .toList(),
       total: pagination['total'] as int? ?? 0,

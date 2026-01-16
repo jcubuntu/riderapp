@@ -1,8 +1,12 @@
+import 'dart:io';
+
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../core/upload/image_picker_helper.dart';
 import '../../../../shared/models/user_model.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../domain/entities/incident.dart';
@@ -479,6 +483,10 @@ class IncidentDetailScreen extends ConsumerWidget {
             ),
             const SizedBox(height: 24),
 
+            // Attachments section
+            _buildAttachmentsSection(context, ref, incident, user),
+            const SizedBox(height: 24),
+
             // Action buttons (for police+ roles)
             if (user != null && _canChangeStatus(user))
               _buildActionButtons(context, ref, incident, user),
@@ -723,6 +731,570 @@ class IncidentDetailScreen extends ConsumerWidget {
             child: Text('common.confirm'.tr()),
           ),
         ],
+      ),
+    );
+  }
+
+  // ============================================================================
+  // ATTACHMENTS SECTION
+  // ============================================================================
+
+  Widget _buildAttachmentsSection(
+    BuildContext context,
+    WidgetRef ref,
+    Incident incident,
+    UserModel? user,
+  ) {
+    final theme = Theme.of(context);
+    final attachments = incident.attachments;
+    final canManageAttachments = _canManageAttachments(incident, user);
+
+    return _buildSection(
+      context,
+      title: 'incidents.attachments'.tr(),
+      icon: Icons.attach_file,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (attachments.isEmpty)
+            Text(
+              'incidents.noAttachments'.tr(),
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                fontStyle: FontStyle.italic,
+              ),
+            )
+          else
+            _buildAttachmentGrid(context, ref, incident, attachments, canManageAttachments),
+
+          // Add attachment button
+          if (canManageAttachments && attachments.length < 5) ...[
+            const SizedBox(height: 16),
+            OutlinedButton.icon(
+              onPressed: () => _showAddAttachmentSheet(context, ref, incident.id),
+              icon: const Icon(Icons.add_photo_alternate_outlined),
+              label: Text('incidents.form.addPhotos'.tr()),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  bool _canManageAttachments(Incident incident, UserModel? user) {
+    if (user == null) return false;
+    // Owner can add attachments if incident is still open
+    if (incident.reportedBy == user.id && incident.isOpen) return true;
+    // Admin/Super Admin can always manage attachments
+    return user.isAdmin || user.isSuperAdmin;
+  }
+
+  Widget _buildAttachmentGrid(
+    BuildContext context,
+    WidgetRef ref,
+    Incident incident,
+    List<IncidentAttachment> attachments,
+    bool canManage,
+  ) {
+    return GridView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 3,
+        crossAxisSpacing: 8,
+        mainAxisSpacing: 8,
+        childAspectRatio: 1,
+      ),
+      itemCount: attachments.length,
+      itemBuilder: (context, index) {
+        final attachment = attachments[index];
+        return _buildAttachmentItem(
+          context,
+          ref,
+          incident.id,
+          attachment,
+          attachments,
+          index,
+          canManage,
+        );
+      },
+    );
+  }
+
+  Widget _buildAttachmentItem(
+    BuildContext context,
+    WidgetRef ref,
+    String incidentId,
+    IncidentAttachment attachment,
+    List<IncidentAttachment> allAttachments,
+    int index,
+    bool canManage,
+  ) {
+    final theme = Theme.of(context);
+
+    return GestureDetector(
+      onTap: () {
+        _showFullScreenImage(context, allAttachments, index);
+      },
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          Container(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: theme.colorScheme.outline.withValues(alpha: 0.3),
+              ),
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(11),
+              child: attachment.isImage
+                  ? CachedNetworkImage(
+                      imageUrl: attachment.thumbnailUrl ?? attachment.fileUrl,
+                      fit: BoxFit.cover,
+                      placeholder: (context, url) => Container(
+                        color: theme.colorScheme.surfaceContainerHighest,
+                        child: const Center(
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        ),
+                      ),
+                      errorWidget: (context, url, error) => Container(
+                        color: theme.colorScheme.surfaceContainerHighest,
+                        child: Icon(
+                          Icons.broken_image_outlined,
+                          color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                        ),
+                      ),
+                    )
+                  : Container(
+                      color: theme.colorScheme.surfaceContainerHighest,
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            _getFileIcon(attachment.fileType),
+                            size: 32,
+                            color: theme.colorScheme.primary,
+                          ),
+                          const SizedBox(height: 4),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 4),
+                            child: Text(
+                              attachment.fileName,
+                              style: theme.textTheme.bodySmall,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              textAlign: TextAlign.center,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+            ),
+          ),
+
+          // Delete button
+          if (canManage)
+            Positioned(
+              top: 4,
+              right: 4,
+              child: GestureDetector(
+                onTap: () => _confirmDeleteAttachment(
+                  context,
+                  ref,
+                  incidentId,
+                  attachment,
+                ),
+                child: Container(
+                  padding: const EdgeInsets.all(4),
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.error,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    Icons.close,
+                    size: 14,
+                    color: theme.colorScheme.onError,
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  IconData _getFileIcon(String fileType) {
+    switch (fileType.toLowerCase()) {
+      case 'video':
+        return Icons.videocam_outlined;
+      case 'document':
+        return Icons.description_outlined;
+      default:
+        return Icons.image_outlined;
+    }
+  }
+
+  void _showFullScreenImage(
+    BuildContext context,
+    List<IncidentAttachment> attachments,
+    int initialIndex,
+  ) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => _FullScreenImageViewer(
+          attachments: attachments,
+          initialIndex: initialIndex,
+        ),
+      ),
+    );
+  }
+
+  void _confirmDeleteAttachment(
+    BuildContext context,
+    WidgetRef ref,
+    String incidentId,
+    IncidentAttachment attachment,
+  ) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('common.confirm'.tr()),
+        content: const Text('Are you sure you want to delete this attachment?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text('common.cancel'.tr()),
+          ),
+          FilledButton(
+            onPressed: () async {
+              Navigator.pop(context);
+              final success = await ref
+                  .read(attachmentUploadProvider.notifier)
+                  .deleteAttachment(incidentId, attachment.id);
+
+              if (context.mounted) {
+                if (success) {
+                  // Refresh the incident detail
+                  ref.read(incidentDetailProvider(incidentId).notifier).refresh();
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Attachment deleted')),
+                  );
+                } else {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Failed to delete attachment'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                }
+              }
+            },
+            style: FilledButton.styleFrom(
+              backgroundColor: Colors.red,
+            ),
+            child: Text('common.delete'.tr()),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showAddAttachmentSheet(
+    BuildContext context,
+    WidgetRef ref,
+    String incidentId,
+  ) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) => _AddAttachmentSheet(
+        onCameraSelected: () async {
+          Navigator.pop(sheetContext);
+          final file = await ImagePickerHelper().pickFromCamera(
+            options: ImagePickerOptions.incident,
+          );
+          if (file != null && context.mounted) {
+            _uploadAttachment(context, ref, incidentId, [file]);
+          }
+        },
+        onGallerySelected: () async {
+          Navigator.pop(sheetContext);
+          final files = await ImagePickerHelper().pickMultipleImages(
+            options: ImagePickerOptions.incident,
+            limit: 5,
+          );
+          if (files.isNotEmpty && context.mounted) {
+            _uploadAttachment(context, ref, incidentId, files);
+          }
+        },
+      ),
+    );
+  }
+
+  Future<void> _uploadAttachment(
+    BuildContext context,
+    WidgetRef ref,
+    String incidentId,
+    List<File> files,
+  ) async {
+    // Show loading indicator
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const Center(
+        child: CircularProgressIndicator(),
+      ),
+    );
+
+    final result = await ref
+        .read(attachmentUploadProvider.notifier)
+        .uploadAttachments(incidentId, files);
+
+    if (context.mounted) {
+      Navigator.pop(context); // Close loading dialog
+
+      if (result != null) {
+        // Refresh the incident detail
+        ref.read(incidentDetailProvider(incidentId).notifier).refresh();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('${result.length} attachment(s) uploaded'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Failed to upload attachments'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+}
+
+/// Full screen image viewer with swipe navigation
+class _FullScreenImageViewer extends StatefulWidget {
+  final List<IncidentAttachment> attachments;
+  final int initialIndex;
+
+  const _FullScreenImageViewer({
+    required this.attachments,
+    required this.initialIndex,
+  });
+
+  @override
+  State<_FullScreenImageViewer> createState() => _FullScreenImageViewerState();
+}
+
+class _FullScreenImageViewerState extends State<_FullScreenImageViewer> {
+  late PageController _pageController;
+  late int _currentIndex;
+
+  @override
+  void initState() {
+    super.initState();
+    _currentIndex = widget.initialIndex;
+    _pageController = PageController(initialPage: widget.initialIndex);
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final imageAttachments = widget.attachments.where((a) => a.isImage).toList();
+
+    return Scaffold(
+      backgroundColor: Colors.black,
+      appBar: AppBar(
+        backgroundColor: Colors.black,
+        foregroundColor: Colors.white,
+        title: Text(
+          '${_currentIndex + 1} / ${imageAttachments.length}',
+          style: const TextStyle(color: Colors.white),
+        ),
+        leading: IconButton(
+          icon: const Icon(Icons.close),
+          onPressed: () => Navigator.pop(context),
+        ),
+      ),
+      body: PageView.builder(
+        controller: _pageController,
+        itemCount: imageAttachments.length,
+        onPageChanged: (index) {
+          setState(() {
+            _currentIndex = index;
+          });
+        },
+        itemBuilder: (context, index) {
+          final attachment = imageAttachments[index];
+          return InteractiveViewer(
+            minScale: 0.5,
+            maxScale: 4.0,
+            child: Center(
+              child: CachedNetworkImage(
+                imageUrl: attachment.fileUrl,
+                fit: BoxFit.contain,
+                placeholder: (context, url) => const Center(
+                  child: CircularProgressIndicator(color: Colors.white),
+                ),
+                errorWidget: (context, url, error) => const Center(
+                  child: Icon(
+                    Icons.broken_image_outlined,
+                    color: Colors.white54,
+                    size: 64,
+                  ),
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+/// Bottom sheet for adding attachments
+class _AddAttachmentSheet extends StatelessWidget {
+  final VoidCallback onCameraSelected;
+  final VoidCallback onGallerySelected;
+
+  const _AddAttachmentSheet({
+    required this.onCameraSelected,
+    required this.onGallerySelected,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: colorScheme.surface,
+        borderRadius: const BorderRadius.vertical(
+          top: Radius.circular(28),
+        ),
+      ),
+      child: SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Handle bar
+            Container(
+              margin: const EdgeInsets.only(top: 12),
+              width: 32,
+              height: 4,
+              decoration: BoxDecoration(
+                color: colorScheme.onSurfaceVariant.withValues(alpha: 0.4),
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+
+            // Title
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Text(
+                'incidents.form.addPhotos'.tr(),
+                style: theme.textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+
+            const Divider(height: 1),
+
+            // Camera option
+            _buildOption(
+              context: context,
+              icon: Icons.camera_alt_outlined,
+              label: 'profile.takePhoto'.tr(),
+              onTap: onCameraSelected,
+            ),
+
+            // Gallery option
+            _buildOption(
+              context: context,
+              icon: Icons.photo_library_outlined,
+              label: 'profile.chooseFromGallery'.tr(),
+              onTap: onGallerySelected,
+            ),
+
+            const SizedBox(height: 8),
+
+            // Cancel button
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: SizedBox(
+                width: double.infinity,
+                child: OutlinedButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: Text('common.cancel'.tr()),
+                ),
+              ),
+            ),
+
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildOption({
+    required BuildContext context,
+    required IconData icon,
+    required String label,
+    required VoidCallback onTap,
+  }) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: colorScheme.primaryContainer.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(
+                icon,
+                color: colorScheme.primary,
+                size: 24,
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Text(
+                label,
+                style: theme.textTheme.bodyLarge?.copyWith(
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+            Icon(
+              Icons.chevron_right,
+              color: colorScheme.onSurface.withValues(alpha: 0.5),
+            ),
+          ],
+        ),
       ),
     );
   }

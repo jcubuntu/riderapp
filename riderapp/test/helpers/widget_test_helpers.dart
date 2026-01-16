@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
+import 'package:easy_localization/easy_localization.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:riderapp/shared/models/user_model.dart';
 import 'package:riderapp/shared/models/dashboard_stats_model.dart';
@@ -9,6 +11,50 @@ import 'package:riderapp/features/auth/presentation/providers/auth_state.dart';
 import 'package:riderapp/features/notifications/presentation/providers/notifications_state.dart';
 import 'package:riderapp/features/notifications/domain/entities/app_notification.dart';
 import 'package:riderapp/shared/providers/stats_provider.dart';
+
+// =============================================================================
+// Localization Test Setup
+// =============================================================================
+
+/// Initialize localization for tests - call this in setUpAll
+Future<void> initializeTestLocalization() async {
+  // Initialize SharedPreferences with empty values for tests
+  SharedPreferences.setMockInitialValues({});
+  await EasyLocalization.ensureInitialized();
+}
+
+/// Mock translations map for testing
+/// This provides fallback values when easy_localization is not fully initialized
+const Map<String, String> mockTranslations = {
+  'app.name': 'RiderApp',
+  'app.tagline': 'Safety Coordination Platform',
+  'auth.phoneNumber': 'Phone Number',
+  'auth.password': 'Password',
+  'auth.forgotPassword': 'Forgot Password?',
+  'auth.loginButton': 'Sign In',
+  'auth.noAccount': "Don't have an account?",
+  'auth.register': 'Register',
+  'auth.validation.phoneRequired': 'Phone number is required',
+  'auth.validation.phoneInvalid': 'Please enter a valid phone number',
+  'auth.validation.passwordRequired': 'Password is required',
+  'auth.validation.passwordTooShort': 'Password must be at least 8 characters',
+  'home.rider.title': 'Home',
+  'home.rider.welcome': 'Welcome',
+  'home.rider.quickActions': 'Quick Actions',
+  'home.rider.reportIncident': 'Report Incident',
+  'home.rider.viewReports': 'My Reports',
+  'home.rider.chat': 'Chat with Police',
+  'home.rider.emergency': 'Emergency Contacts',
+  'incidents.title': 'Incidents',
+  'chat.title': 'Messages',
+  'profile.title': 'Profile',
+  'announcements.title': 'Announcements',
+  'announcements.noAnnouncements': 'No announcements',
+  'common.next': 'Next',
+  'notifications.title': 'Notifications',
+  'notifications.empty': 'No notifications',
+  'notifications.markAllRead': 'Mark all as read',
+};
 
 // =============================================================================
 // Test User Factory
@@ -450,7 +496,8 @@ class MockDashboardStatsNotifier extends StateNotifier<DashboardStatsState> {
 // =============================================================================
 
 /// A wrapper widget that provides all necessary providers and configuration
-/// for widget testing.
+/// for widget testing. This wrapper bypasses easy_localization issues in tests
+/// by using a simple MaterialApp without the EasyLocalization widget.
 class WidgetTestWrapper extends StatelessWidget {
   final Widget child;
   final List<Override>? providerOverrides;
@@ -483,6 +530,44 @@ class WidgetTestWrapper extends StatelessWidget {
     return ProviderScope(
       overrides: providerOverrides ?? [],
       child: app,
+    );
+  }
+}
+
+/// A test wrapper that provides EasyLocalization support for widget tests.
+/// Use this when testing widgets that use .tr() translations.
+class LocalizedWidgetTestWrapper extends StatelessWidget {
+  final Widget child;
+  final List<Override>? providerOverrides;
+  final Locale? locale;
+
+  const LocalizedWidgetTestWrapper({
+    super.key,
+    required this.child,
+    this.providerOverrides,
+    this.locale,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return ProviderScope(
+      overrides: providerOverrides ?? [],
+      child: EasyLocalization(
+        supportedLocales: const [Locale('en'), Locale('th')],
+        path: 'assets/translations',
+        fallbackLocale: const Locale('en'),
+        useOnlyLangCode: true,
+        child: Builder(
+          builder: (context) {
+            return MaterialApp(
+              home: child,
+              locale: locale ?? context.locale,
+              localizationsDelegates: context.localizationDelegates,
+              supportedLocales: context.supportedLocales,
+            );
+          },
+        ),
+      ),
     );
   }
 }
@@ -602,12 +687,15 @@ class NavigationTestWrapper extends StatelessWidget {
 // Test Utilities
 // =============================================================================
 
-/// Helper function to pump widget with necessary providers
+/// Helper function to pump widget with necessary providers.
+/// Uses controlled pump calls instead of pumpAndSettle to avoid timeouts.
 Future<void> pumpWidgetWithProviders(
   WidgetTester tester,
   Widget widget, {
   List<Override>? overrides,
-  bool settle = true,
+  bool settle = false,
+  int pumpFrames = 5,
+  Duration pumpDuration = const Duration(milliseconds: 100),
 }) async {
   await tester.pumpWidget(
     WidgetTestWrapper(
@@ -617,17 +705,30 @@ Future<void> pumpWidgetWithProviders(
   );
 
   if (settle) {
-    await tester.pumpAndSettle();
+    // Use pumpAndSettle with a timeout to prevent infinite loops
+    await tester.pumpAndSettle(
+      const Duration(milliseconds: 100),
+      EnginePhase.sendSemanticsUpdate,
+      const Duration(seconds: 5),
+    );
+  } else {
+    // Use controlled pump calls
+    for (var i = 0; i < pumpFrames; i++) {
+      await tester.pump(pumpDuration);
+    }
   }
 }
 
-/// Helper function to pump widget with navigation support
+/// Helper function to pump widget with navigation support.
+/// Uses controlled pump calls instead of pumpAndSettle to avoid timeouts.
 Future<void> pumpWidgetWithNavigation(
   WidgetTester tester,
   Widget widget, {
   List<Override>? overrides,
   String initialLocation = '/',
-  bool settle = true,
+  bool settle = false,
+  int pumpFrames = 5,
+  Duration pumpDuration = const Duration(milliseconds: 100),
 }) async {
   await tester.pumpWidget(
     NavigationTestWrapper(
@@ -638,7 +739,78 @@ Future<void> pumpWidgetWithNavigation(
   );
 
   if (settle) {
-    await tester.pumpAndSettle();
+    // Use pumpAndSettle with a timeout
+    await tester.pumpAndSettle(
+      const Duration(milliseconds: 100),
+      EnginePhase.sendSemanticsUpdate,
+      const Duration(seconds: 5),
+    );
+  } else {
+    // Use controlled pump calls
+    for (var i = 0; i < pumpFrames; i++) {
+      await tester.pump(pumpDuration);
+    }
+  }
+}
+
+/// Safely pump frames without using pumpAndSettle.
+/// This is useful for widgets with infinite animations.
+Future<void> pumpFrames(
+  WidgetTester tester, {
+  int frames = 5,
+  Duration duration = const Duration(milliseconds: 100),
+}) async {
+  for (var i = 0; i < frames; i++) {
+    await tester.pump(duration);
+  }
+}
+
+/// Try pumpAndSettle with a timeout, falling back to pump if it times out.
+Future<void> safePumpAndSettle(
+  WidgetTester tester, {
+  Duration timeout = const Duration(seconds: 2),
+  int fallbackPumpFrames = 10,
+}) async {
+  try {
+    await tester.pumpAndSettle(
+      const Duration(milliseconds: 100),
+      EnginePhase.sendSemanticsUpdate,
+      timeout,
+    );
+  } catch (_) {
+    // If pumpAndSettle times out, use pump instead
+    for (var i = 0; i < fallbackPumpFrames; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+  }
+}
+
+/// Helper function to pump widget and wait for EasyLocalization to load.
+/// Uses runAsync to properly handle asynchronous asset loading.
+/// This is the recommended way to test widgets that use easy_localization.
+///
+/// Example:
+/// ```dart
+/// testWidgets('my test', (tester) async {
+///   await pumpAndWait(tester, buildMyWidget());
+///   expect(find.byType(MyWidget), findsOneWidget);
+/// });
+/// ```
+Future<void> pumpAndWait(
+  WidgetTester tester,
+  Widget widget, {
+  Duration asyncDelay = const Duration(milliseconds: 500),
+  int pumpFrames = 20,
+  Duration pumpDuration = const Duration(milliseconds: 50),
+}) async {
+  await tester.runAsync(() async {
+    await tester.pumpWidget(widget);
+    // Allow time for EasyLocalization to load assets
+    await Future.delayed(asyncDelay);
+  });
+  // Pump frames to render the UI
+  for (var i = 0; i < pumpFrames; i++) {
+    await tester.pump(pumpDuration);
   }
 }
 

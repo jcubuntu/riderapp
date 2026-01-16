@@ -1,4 +1,4 @@
-import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:easy_localization/easy_localization.dart';
@@ -11,10 +11,6 @@ import 'core/storage/secure_storage.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Set up Firebase background message handler
-  // IMPORTANT: Must be set BEFORE initializing Firebase
-  FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
-
   // Initialize localization
   await EasyLocalization.ensureInitialized();
 
@@ -24,10 +20,13 @@ void main() async {
   // Initialize API client
   await ApiClient().init();
 
-  // Initialize Firebase and FCM service
-  // TODO: Ensure google-services.json is in android/app/
-  // TODO: Ensure GoogleService-Info.plist is in ios/Runner/
-  await FcmService().initialize();
+  // Initialize Firebase and FCM service (optional - works without Firebase config)
+  // If Firebase config files are not present, push notifications will be disabled
+  // To enable: add google-services.json (Android) or GoogleService-Info.plist (iOS)
+  final firebaseAvailable = await FcmService().initialize();
+  if (kDebugMode) {
+    debugPrint('[Main] Firebase available: $firebaseAvailable');
+  }
 
   runApp(
     EasyLocalization(

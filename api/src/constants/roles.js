@@ -8,6 +8,7 @@ const ROLES = Object.freeze({
   RIDER: 'rider',
   VOLUNTEER: 'volunteer',
   POLICE: 'police',
+  COMMANDER: 'commander',
   ADMIN: 'admin',
   SUPER_ADMIN: 'super_admin',
 });
@@ -20,8 +21,9 @@ const ROLE_HIERARCHY = Object.freeze({
   [ROLES.RIDER]: 1,
   [ROLES.VOLUNTEER]: 2,
   [ROLES.POLICE]: 3,
-  [ROLES.ADMIN]: 4,
-  [ROLES.SUPER_ADMIN]: 5,
+  [ROLES.COMMANDER]: 4,
+  [ROLES.ADMIN]: 5,
+  [ROLES.SUPER_ADMIN]: 6,
 });
 
 /**
@@ -47,6 +49,7 @@ const getRoleDisplayName = (role) => {
     [ROLES.RIDER]: 'Rider',
     [ROLES.VOLUNTEER]: 'Volunteer',
     [ROLES.POLICE]: 'Police Officer',
+    [ROLES.COMMANDER]: 'Commander',
     [ROLES.ADMIN]: 'Administrator',
     [ROLES.SUPER_ADMIN]: 'Super Administrator',
   };
@@ -63,6 +66,7 @@ const getRoleDescription = (role) => {
     [ROLES.RIDER]: 'A motorcycle rider who can report incidents and view their own reports',
     [ROLES.VOLUNTEER]: 'A police volunteer who assists with incident coordination and monitoring',
     [ROLES.POLICE]: 'A police officer who can manage incidents and track riders',
+    [ROLES.COMMANDER]: 'A commanding officer who oversees police operations and approves actions',
     [ROLES.ADMIN]: 'A system administrator with full access to all features',
     [ROLES.SUPER_ADMIN]: 'A super administrator with full system control including admin management and system configuration',
   };
@@ -102,9 +106,11 @@ const compareRoles = (roleA, roleB) => {
 const getAssignableRoles = (assignerRole) => {
   switch (assignerRole) {
     case ROLES.SUPER_ADMIN:
-      return [ROLES.RIDER, ROLES.VOLUNTEER, ROLES.POLICE, ROLES.ADMIN, ROLES.SUPER_ADMIN];
+      return [ROLES.RIDER, ROLES.VOLUNTEER, ROLES.POLICE, ROLES.COMMANDER, ROLES.ADMIN, ROLES.SUPER_ADMIN];
     case ROLES.ADMIN:
-      return [ROLES.RIDER, ROLES.VOLUNTEER, ROLES.POLICE, ROLES.ADMIN];
+      return [ROLES.RIDER, ROLES.VOLUNTEER, ROLES.POLICE, ROLES.COMMANDER, ROLES.ADMIN];
+    case ROLES.COMMANDER:
+      return [ROLES.RIDER, ROLES.VOLUNTEER, ROLES.POLICE];
     case ROLES.POLICE:
       return [ROLES.RIDER, ROLES.VOLUNTEER];
     default:
@@ -149,6 +155,19 @@ const ROLE_PERMISSIONS = Object.freeze({
     canDeleteOwnIncidents: false,
     canViewAllIncidents: true,
     canManageUsers: false,
+    canApproveUsers: true,
+    canViewDashboard: true,
+    canAccessAdmin: false,
+    canManageAdmins: false,
+    canAccessSystemConfig: false,
+  },
+  [ROLES.COMMANDER]: {
+    canCreateIncident: true,
+    canViewOwnIncidents: true,
+    canUpdateOwnIncidents: true,
+    canDeleteOwnIncidents: true,
+    canViewAllIncidents: true,
+    canManageUsers: true,
     canApproveUsers: true,
     canViewDashboard: true,
     canAccessAdmin: false,

@@ -5,6 +5,7 @@ enum UserRole {
   rider,
   volunteer,
   police,
+  commander,
   admin,
   superAdmin;
 
@@ -16,12 +17,35 @@ enum UserRole {
         return 'Volunteer';
       case UserRole.police:
         return 'Police';
+      case UserRole.commander:
+        return 'Commander';
       case UserRole.admin:
         return 'Admin';
       case UserRole.superAdmin:
         return 'Super Admin';
     }
   }
+
+  /// Get role hierarchy level (higher = more privileges)
+  int get level {
+    switch (this) {
+      case UserRole.rider:
+        return 1;
+      case UserRole.volunteer:
+        return 2;
+      case UserRole.police:
+        return 3;
+      case UserRole.commander:
+        return 4;
+      case UserRole.admin:
+        return 5;
+      case UserRole.superAdmin:
+        return 6;
+    }
+  }
+
+  /// Check if this role has at least the given minimum role level
+  bool hasMinimumRole(UserRole minRole) => level >= minRole.level;
 
   static UserRole fromString(String value) {
     switch (value.toLowerCase()) {
@@ -31,6 +55,8 @@ enum UserRole {
         return UserRole.volunteer;
       case 'police':
         return UserRole.police;
+      case 'commander':
+        return UserRole.commander;
       case 'admin':
         return UserRole.admin;
       case 'super_admin':
@@ -119,6 +145,9 @@ class UserModel extends Equatable {
   /// Check if user is police
   bool get isPolice => role == UserRole.police;
 
+  /// Check if user is commander
+  bool get isCommander => role == UserRole.commander;
+
   /// Check if user is admin
   bool get isAdmin => role == UserRole.admin;
 
@@ -129,13 +158,13 @@ class UserModel extends Equatable {
   bool get isSuperAdmin => role == UserRole.superAdmin;
 
   /// Check if user can create announcements
-  bool get canCreateAnnouncements => isPolice || isAdmin || isSuperAdmin;
+  bool get canCreateAnnouncements => role.hasMinimumRole(UserRole.police);
 
   /// Check if user can approve other users
-  bool get canApproveUsers => isPolice || isAdmin || isSuperAdmin;
+  bool get canApproveUsers => role.hasMinimumRole(UserRole.police);
 
   /// Check if user can manage users
-  bool get canManageUsers => isAdmin || isSuperAdmin;
+  bool get canManageUsers => role.hasMinimumRole(UserRole.commander);
 
   /// Check if user can manage admins (super admin only)
   bool get canManageAdmins => isSuperAdmin;

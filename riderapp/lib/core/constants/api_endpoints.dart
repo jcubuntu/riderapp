@@ -8,10 +8,10 @@ abstract final class ApiEndpoints {
   // ============================================================================
 
   /// Base URL for development environment
-  static const String devBaseUrl = 'http://localhost:3000/api/v1';
+  static const String devBaseUrl = 'http://localhost:4000/api/v1';
 
   /// Base URL for staging environment
-  static const String stagingBaseUrl = 'https://staging-api.riderapp.com/api/v1';
+  static const String stagingBaseUrl = 'https://dev-rider.makerrobotics.co.th/api/v1';
 
   /// Base URL for production environment
   static const String prodBaseUrl = 'https://api.riderapp.com/api/v1';
@@ -215,6 +215,15 @@ abstract final class ApiEndpoints {
 
   /// GET - Get unread message count
   static const String unreadCount = '$_chatPrefix/unread-count';
+
+  /// GET - Get role-based chat groups
+  static const String chatGroups = '$_chatPrefix/groups';
+
+  /// POST - Join a role-based chat group
+  static String joinChatGroup(String groupId) => '$_chatPrefix/groups/$groupId/join';
+
+  /// POST - Auto-join all accessible chat groups
+  static const String autoJoinChatGroups = '$_chatPrefix/groups/auto-join';
 
   // ============================================================================
   // ANNOUNCEMENT ENDPOINTS

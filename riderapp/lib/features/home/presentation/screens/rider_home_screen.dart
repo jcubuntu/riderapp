@@ -4,6 +4,7 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/constants/app_colors.dart';
+import '../../../../navigation/app_router.dart';
 import '../../../../shared/providers/stats_provider.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
 
@@ -82,7 +83,7 @@ class _RiderHomeScreenState extends ConsumerState<RiderHomeScreen> {
           IconButton(
             icon: const Icon(Icons.person_outline),
             onPressed: () {
-              // TODO: Navigate to profile
+              context.push(AppRoutes.profile);
             },
           ),
           IconButton(
@@ -163,7 +164,7 @@ class _RiderHomeScreenState extends ConsumerState<RiderHomeScreen> {
                     label: 'home.rider.reportIncident'.tr(),
                     color: AppColors.error,
                     onTap: () {
-                      // TODO: Navigate to create incident
+                      context.push(AppRoutes.createIncident);
                     },
                   ),
                   _buildActionCard(
@@ -172,7 +173,7 @@ class _RiderHomeScreenState extends ConsumerState<RiderHomeScreen> {
                     label: 'home.rider.viewReports'.tr(),
                     color: AppColors.info,
                     onTap: () {
-                      // TODO: Navigate to my reports
+                      context.push(AppRoutes.myIncidents);
                     },
                   ),
                   _buildActionCard(
@@ -181,7 +182,7 @@ class _RiderHomeScreenState extends ConsumerState<RiderHomeScreen> {
                     label: 'home.rider.chat'.tr(),
                     color: AppColors.primary,
                     onTap: () {
-                      // TODO: Navigate to chat
+                      context.push(AppRoutes.chat);
                     },
                   ),
                   _buildActionCard(
@@ -190,7 +191,7 @@ class _RiderHomeScreenState extends ConsumerState<RiderHomeScreen> {
                     label: 'home.rider.emergency'.tr(),
                     color: AppColors.warning,
                     onTap: () {
-                      // TODO: Navigate to emergency contacts
+                      context.push(AppRoutes.emergency);
                     },
                   ),
                 ],
@@ -210,9 +211,9 @@ class _RiderHomeScreenState extends ConsumerState<RiderHomeScreen> {
                   ),
                   TextButton(
                     onPressed: () {
-                      // TODO: Navigate to all announcements
+                      context.push(AppRoutes.announcements);
                     },
-                    child: Text('common.next'.tr()),
+                    child: Text('common.viewAll'.tr()),
                   ),
                 ],
               ),
@@ -240,6 +241,27 @@ class _RiderHomeScreenState extends ConsumerState<RiderHomeScreen> {
           ),
         ),
       ),
+      floatingActionButton: FloatingActionButton.large(
+        onPressed: () {
+          context.push('/emergency/sos');
+        },
+        backgroundColor: Colors.red,
+        foregroundColor: Colors.white,
+        child: const Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.sos, size: 32),
+            Text(
+              'SOS',
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        ),
+      ),
+      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: 0,
         type: BottomNavigationBarType.fixed,

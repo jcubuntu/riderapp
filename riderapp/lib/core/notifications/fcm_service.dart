@@ -5,6 +5,7 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
+import '../../firebase_options.dart';
 import '../constants/api_endpoints.dart';
 import '../network/api_client.dart';
 import '../storage/secure_storage.dart';
@@ -93,37 +94,60 @@ class FcmService {
   // INITIALIZATION
   // ============================================================================
 
+  /// Whether Firebase is available
+  bool _isFirebaseAvailable = false;
+
   /// Initialize Firebase and FCM service
   ///
   /// Must be called before using any FCM features.
   /// Typically called in main.dart before runApp().
-  Future<void> initialize() async {
-    if (_isInitialized) return;
+  /// Returns true if Firebase was initialized successfully.
+  Future<bool> initialize() async {
+    if (_isInitialized) return _isFirebaseAvailable;
 
-    // Initialize Firebase
-    // TODO: Ensure google-services.json is in android/app/
-    // TODO: Ensure GoogleService-Info.plist is in ios/Runner/
-    await Firebase.initializeApp();
-
-    _messaging = FirebaseMessaging.instance;
+    // Initialize local notifications first (works without Firebase)
     _localNotifications = FlutterLocalNotificationsPlugin();
     _notificationHandler = NotificationHandler(_localNotifications);
-
-    // Initialize local notifications
     await _initializeLocalNotifications();
 
     // Create notification channels (Android only)
     await _createNotificationChannels();
 
-    // Set up message handlers
-    _setupMessageHandlers();
+    // Try to initialize Firebase
+    try {
+      await Firebase.initializeApp(
+        options: DefaultFirebaseOptions.currentPlatform,
+      );
+      _messaging = FirebaseMessaging.instance;
+
+      // Set up message handlers
+      _setupMessageHandlers();
+
+      _isFirebaseAvailable = true;
+
+      if (kDebugMode) {
+        debugPrint('[FCM] Firebase initialized successfully');
+      }
+    } catch (e) {
+      _isFirebaseAvailable = false;
+      if (kDebugMode) {
+        debugPrint('[FCM] Firebase not available: $e');
+        debugPrint('[FCM] Push notifications will be disabled');
+        debugPrint('[FCM] To enable, add google-services.json (Android) or GoogleService-Info.plist (iOS)');
+      }
+    }
 
     _isInitialized = true;
 
     if (kDebugMode) {
-      debugPrint('[FCM] Service initialized');
+      debugPrint('[FCM] Service initialized (Firebase: $_isFirebaseAvailable)');
     }
+
+    return _isFirebaseAvailable;
   }
+
+  /// Check if Firebase is available
+  bool get isFirebaseAvailable => _isFirebaseAvailable;
 
   /// Initialize local notifications plugin
   Future<void> _initializeLocalNotifications() async {
@@ -199,8 +223,16 @@ class FcmService {
   /// Request notification permissions
   ///
   /// Returns true if permission was granted, false otherwise.
+  /// Returns false if Firebase is not available.
   Future<bool> requestPermission() async {
     _ensureInitialized();
+
+    if (!_isFirebaseAvailable) {
+      if (kDebugMode) {
+        debugPrint('[FCM] Cannot request permission: Firebase not available');
+      }
+      return false;
+    }
 
     final settings = await _messaging.requestPermission(
       alert: true,
@@ -235,8 +267,10 @@ class FcmService {
   }
 
   /// Check current permission status
+  /// Returns AuthorizationStatus.denied if Firebase is not available.
   Future<AuthorizationStatus> getPermissionStatus() async {
     _ensureInitialized();
+    if (!_isFirebaseAvailable) return AuthorizationStatus.denied;
     final settings = await _messaging.getNotificationSettings();
     return settings.authorizationStatus;
   }
@@ -255,8 +289,16 @@ class FcmService {
   /// Get current FCM token
   ///
   /// If no token is cached, fetches a new one from Firebase.
+  /// Returns null if Firebase is not available.
   Future<String?> getToken() async {
     _ensureInitialized();
+
+    if (!_isFirebaseAvailable) {
+      if (kDebugMode) {
+        debugPrint('[FCM] Cannot get token: Firebase not available');
+      }
+      return null;
+    }
 
     if (_currentToken != null) {
       return _currentToken;
@@ -340,7 +382,9 @@ class FcmService {
     _ensureInitialized();
 
     try {
-      await _messaging.deleteToken();
+      if (_isFirebaseAvailable) {
+        await _messaging.deleteToken();
+      }
       await _secureStorage.deleteFcmToken();
       _currentToken = null;
 
@@ -398,6 +442,7 @@ class FcmService {
   /// Check for initial message (app opened from terminated state)
   Future<RemoteMessage?> getInitialMessage() async {
     _ensureInitialized();
+    if (!_isFirebaseAvailable) return null;
     return _messaging.getInitialMessage();
   }
 
@@ -408,6 +453,7 @@ class FcmService {
   /// Subscribe to a topic
   Future<void> subscribeToTopic(String topic) async {
     _ensureInitialized();
+    if (!_isFirebaseAvailable) return;
 
     try {
       await _messaging.subscribeToTopic(topic);
@@ -425,6 +471,7 @@ class FcmService {
   /// Unsubscribe from a topic
   Future<void> unsubscribeFromTopic(String topic) async {
     _ensureInitialized();
+    if (!_isFirebaseAvailable) return;
 
     try {
       await _messaging.unsubscribeFromTopic(topic);
@@ -524,8 +571,10 @@ class FcmService {
   }
 
   /// Get notification handler instance
-  NotificationHandler get notificationHandler {
+  /// Returns null if Firebase is not available.
+  NotificationHandler? get notificationHandler {
     _ensureInitialized();
+    if (!_isFirebaseAvailable) return null;
     return _notificationHandler;
   }
 
@@ -547,7 +596,9 @@ class FcmService {
 @pragma('vm:entry-point')
 Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   // Initialize Firebase if not already initialized
-  await Firebase.initializeApp();
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
 
   if (kDebugMode) {
     debugPrint('[FCM Background] Message received: ${message.messageId}');

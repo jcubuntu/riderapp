@@ -223,6 +223,63 @@ const getUnreadCount = async (req, res) => {
   }
 };
 
+// ============= Role-Based Group Endpoints =============
+
+/**
+ * Get role-based chat groups accessible by user
+ * GET /chat/groups
+ */
+const getRoleBasedGroups = async (req, res) => {
+  try {
+    const groups = await chatService.getRoleBasedGroups(req.user);
+
+    return successResponse(res, groups, 'Role-based groups retrieved successfully');
+  } catch (error) {
+    console.error('Get role-based groups error:', error);
+    return badRequestResponse(res, 'Failed to retrieve role-based groups');
+  }
+};
+
+/**
+ * Join a role-based chat group
+ * POST /chat/groups/:id/join
+ */
+const joinRoleBasedGroup = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const conversation = await chatService.joinRoleBasedGroup(id, req.user);
+
+    return successResponse(res, conversation, 'Joined group successfully');
+  } catch (error) {
+    console.error('Join role-based group error:', error);
+
+    switch (error.message) {
+      case 'NOT_A_ROLE_BASED_GROUP':
+        return badRequestResponse(res, 'This is not a role-based group');
+      case 'INSUFFICIENT_ROLE':
+        return forbiddenResponse(res, 'Your role does not have access to this group');
+      default:
+        return badRequestResponse(res, 'Failed to join group');
+    }
+  }
+};
+
+/**
+ * Auto-join user to all accessible role-based groups
+ * POST /chat/groups/auto-join
+ */
+const autoJoinAllGroups = async (req, res) => {
+  try {
+    const result = await chatService.autoJoinAllGroups(req.user);
+
+    return successResponse(res, result, `Joined ${result.joinedCount} group(s) successfully`);
+  } catch (error) {
+    console.error('Auto-join groups error:', error);
+    return badRequestResponse(res, 'Failed to auto-join groups');
+  }
+};
+
 module.exports = {
   // Conversation endpoints
   getConversations,
@@ -234,4 +291,8 @@ module.exports = {
   getMessages,
   sendMessage,
   getUnreadCount,
+  // Role-based group endpoints
+  getRoleBasedGroups,
+  joinRoleBasedGroup,
+  autoJoinAllGroups,
 };

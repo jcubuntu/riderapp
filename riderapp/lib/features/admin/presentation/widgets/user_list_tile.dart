@@ -248,6 +248,8 @@ class UserListTile extends StatelessWidget {
         return Colors.teal;
       case UserRole.police:
         return Colors.indigo;
+      case UserRole.commander:
+        return Colors.purple;
       case UserRole.admin:
         return Colors.purple;
       case UserRole.superAdmin:

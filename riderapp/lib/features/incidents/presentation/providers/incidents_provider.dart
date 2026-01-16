@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/datasources/incidents_remote_datasource.dart';
@@ -449,3 +451,159 @@ class IncidentStatsNotifier extends StateNotifier<IncidentStatsState> {
     await loadStats();
   }
 }
+
+// ============================================================================
+// ATTACHMENT MANAGEMENT
+// ============================================================================
+
+/// State for managing pending attachments during incident creation
+class PendingAttachmentsState {
+  final List<File> pendingFiles;
+  final AttachmentUploadState uploadState;
+
+  const PendingAttachmentsState({
+    this.pendingFiles = const [],
+    this.uploadState = const AttachmentUploadInitial(),
+  });
+
+  PendingAttachmentsState copyWith({
+    List<File>? pendingFiles,
+    AttachmentUploadState? uploadState,
+  }) {
+    return PendingAttachmentsState(
+      pendingFiles: pendingFiles ?? this.pendingFiles,
+      uploadState: uploadState ?? this.uploadState,
+    );
+  }
+
+  bool get hasFiles => pendingFiles.isNotEmpty;
+  int get fileCount => pendingFiles.length;
+}
+
+/// Notifier for managing pending attachments during incident creation
+class PendingAttachmentsNotifier extends StateNotifier<PendingAttachmentsState> {
+  PendingAttachmentsNotifier() : super(const PendingAttachmentsState());
+
+  /// Maximum number of attachments allowed
+  static const int maxAttachments = 5;
+
+  /// Add files to pending list
+  void addFiles(List<File> files) {
+    final currentCount = state.pendingFiles.length;
+    final allowedCount = maxAttachments - currentCount;
+    if (allowedCount <= 0) return;
+
+    final filesToAdd = files.take(allowedCount).toList();
+    state = state.copyWith(
+      pendingFiles: [...state.pendingFiles, ...filesToAdd],
+    );
+  }
+
+  /// Remove a file from pending list
+  void removeFile(File file) {
+    state = state.copyWith(
+      pendingFiles: state.pendingFiles.where((f) => f.path != file.path).toList(),
+    );
+  }
+
+  /// Remove file at index
+  void removeFileAt(int index) {
+    if (index < 0 || index >= state.pendingFiles.length) return;
+    final newFiles = List<File>.from(state.pendingFiles);
+    newFiles.removeAt(index);
+    state = state.copyWith(pendingFiles: newFiles);
+  }
+
+  /// Clear all pending files
+  void clearFiles() {
+    state = state.copyWith(pendingFiles: []);
+  }
+
+  /// Reset to initial state
+  void reset() {
+    state = const PendingAttachmentsState();
+  }
+
+  /// Check if can add more files
+  bool get canAddMore => state.pendingFiles.length < maxAttachments;
+
+  /// Get remaining slots
+  int get remainingSlots => maxAttachments - state.pendingFiles.length;
+}
+
+/// Provider for pending attachments during incident creation
+final pendingAttachmentsProvider =
+    StateNotifierProvider<PendingAttachmentsNotifier, PendingAttachmentsState>(
+        (ref) {
+  return PendingAttachmentsNotifier();
+});
+
+/// Notifier for attachment upload operations
+class AttachmentUploadNotifier extends StateNotifier<AttachmentUploadState> {
+  final IIncidentsRepository _repository;
+
+  AttachmentUploadNotifier(this._repository)
+      : super(const AttachmentUploadInitial());
+
+  /// Upload attachments to an incident
+  Future<List<IncidentAttachment>?> uploadAttachments(
+    String incidentId,
+    List<File> files, {
+    String? description,
+  }) async {
+    if (files.isEmpty) return null;
+
+    state = const AttachmentUploadLoading(progress: 0);
+
+    try {
+      final filePaths = files.map((f) => f.path).toList();
+      final attachments = await _repository.uploadAttachments(
+        incidentId,
+        filePaths: filePaths,
+        description: description,
+      );
+
+      state = AttachmentUploadSuccess(attachments: attachments);
+      return attachments;
+    } on IncidentsException catch (e) {
+      state = AttachmentUploadError(e.message);
+      return null;
+    } catch (e) {
+      state = AttachmentUploadError(e.toString());
+      return null;
+    }
+  }
+
+  /// Delete an attachment from an incident
+  Future<bool> deleteAttachment(String incidentId, String attachmentId) async {
+    try {
+      await _repository.deleteAttachment(incidentId, attachmentId);
+      return true;
+    } on IncidentsException {
+      return false;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Reset state
+  void reset() {
+    state = const AttachmentUploadInitial();
+  }
+}
+
+/// Provider for attachment upload operations
+final attachmentUploadProvider =
+    StateNotifierProvider<AttachmentUploadNotifier, AttachmentUploadState>(
+        (ref) {
+  final repository = ref.watch(incidentsRepositoryProvider);
+  return AttachmentUploadNotifier(repository);
+});
+
+/// Provider to get attachments for a specific incident
+final incidentAttachmentsProvider =
+    FutureProvider.family<List<IncidentAttachment>, String>(
+        (ref, incidentId) async {
+  final repository = ref.watch(incidentsRepositoryProvider);
+  return repository.getAttachments(incidentId);
+});

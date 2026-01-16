@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import '../../domain/entities/chat_group.dart';
 import '../../domain/entities/conversation.dart';
 import '../../domain/entities/message.dart';
 import '../../domain/repositories/chat_repository.dart';
@@ -91,5 +92,24 @@ class ChatRepositoryImpl implements ChatRepository {
   @override
   Future<int> getUnreadCount() {
     return _remoteDataSource.getUnreadCount();
+  }
+
+  // ============================================================================
+  // ROLE-BASED CHAT GROUPS
+  // ============================================================================
+
+  @override
+  Future<List<ChatGroup>> getGroups() {
+    return _remoteDataSource.getGroups();
+  }
+
+  @override
+  Future<Conversation> joinGroup(String groupId) {
+    return _remoteDataSource.joinGroup(groupId);
+  }
+
+  @override
+  Future<int> autoJoinGroups() {
+    return _remoteDataSource.autoJoinGroups();
   }
 }

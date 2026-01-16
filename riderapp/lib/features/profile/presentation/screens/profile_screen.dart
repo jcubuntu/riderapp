@@ -424,6 +424,8 @@ class ProfileScreen extends ConsumerWidget {
         return AppColors.secondary;
       case UserRole.police:
         return AppColors.warning;
+      case UserRole.commander:
+        return AppColors.primary;
       case UserRole.admin:
         return AppColors.primary;
       case UserRole.superAdmin:

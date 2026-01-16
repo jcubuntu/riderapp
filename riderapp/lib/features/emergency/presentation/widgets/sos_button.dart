@@ -250,8 +250,8 @@ class _SosButtonState extends State<SosButton>
             icon: const Icon(Icons.close),
             label: Text('emergency.sos.cancel'.tr()),
             style: OutlinedButton.styleFrom(
-              foregroundColor: Colors.red,
-              side: const BorderSide(color: Colors.red),
+              foregroundColor: Colors.white,
+              side: const BorderSide(color: Colors.white, width: 2),
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
             ),
           ),

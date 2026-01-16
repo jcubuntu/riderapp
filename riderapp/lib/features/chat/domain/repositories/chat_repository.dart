@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import '../entities/chat_group.dart';
 import '../entities/conversation.dart';
 import '../entities/message.dart';
 
@@ -54,4 +55,17 @@ abstract class ChatRepository {
 
   /// Get unread count
   Future<int> getUnreadCount();
+
+  // ============================================================================
+  // ROLE-BASED CHAT GROUPS
+  // ============================================================================
+
+  /// Get list of role-based chat groups accessible by user
+  Future<List<ChatGroup>> getGroups();
+
+  /// Join a role-based chat group
+  Future<Conversation> joinGroup(String groupId);
+
+  /// Auto-join all accessible chat groups
+  Future<int> autoJoinGroups();
 }

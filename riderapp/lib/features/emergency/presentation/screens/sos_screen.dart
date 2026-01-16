@@ -62,9 +62,9 @@ class _SosScreenState extends ConsumerState<SosScreen> {
     return Scaffold(
       backgroundColor: _getBackgroundColor(state, theme),
       appBar: AppBar(
-        backgroundColor: Colors.transparent,
+        backgroundColor: _isActiveState(state) ? Colors.red.shade900 : Colors.red,
         elevation: 0,
-        foregroundColor: _isActiveState(state) ? Colors.white : null,
+        foregroundColor: Colors.white,
         title: Text('emergency.sos.title'.tr()),
       ),
       body: SafeArea(
@@ -114,19 +114,20 @@ class _SosScreenState extends ConsumerState<SosScreen> {
       return Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          SizedBox(
+          const SizedBox(
             width: 16,
             height: 16,
             child: CircularProgressIndicator(
               strokeWidth: 2,
-              color: theme.colorScheme.primary,
+              color: Colors.green,
             ),
           ),
           const SizedBox(width: 8),
           Text(
-            'Getting location...',
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
+            'emergency.sos.gettingLocation'.tr(),
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: Colors.grey.shade700,
+              fontWeight: FontWeight.w500,
             ),
           ),
         ],
@@ -134,43 +135,63 @@ class _SosScreenState extends ConsumerState<SosScreen> {
     }
 
     if (_currentPosition != null) {
-      return Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            Icons.location_on,
-            size: 16,
-            color: theme.colorScheme.primary,
-          ),
-          const SizedBox(width: 4),
-          Text(
-            'Location ready',
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: theme.colorScheme.primary,
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        decoration: BoxDecoration(
+          color: Colors.green.shade50,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: Colors.green.shade200),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.location_on,
+              size: 18,
+              color: Colors.green.shade700,
             ),
-          ),
-        ],
+            const SizedBox(width: 6),
+            Text(
+              'emergency.sos.locationReady'.tr(),
+              style: TextStyle(
+                color: Colors.green.shade700,
+                fontWeight: FontWeight.w600,
+                fontSize: 14,
+              ),
+            ),
+          ],
+        ),
       );
     }
 
     return GestureDetector(
       onTap: _getCurrentLocation,
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            Icons.location_off,
-            size: 16,
-            color: theme.colorScheme.error,
-          ),
-          const SizedBox(width: 4),
-          Text(
-            'Tap to enable location',
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: theme.colorScheme.error,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        decoration: BoxDecoration(
+          color: Colors.orange.shade50,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: Colors.orange.shade200),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.location_off,
+              size: 18,
+              color: Colors.orange.shade700,
             ),
-          ),
-        ],
+            const SizedBox(width: 6),
+            Text(
+              'emergency.sos.tapToEnableLocation'.tr(),
+              style: TextStyle(
+                color: Colors.orange.shade700,
+                fontWeight: FontWeight.w600,
+                fontSize: 14,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
