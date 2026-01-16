@@ -1,0 +1,64 @@
+# Dependencies
+node_modules/
+.dart_tool/
+.packages
+
+# IDE
+.idea/
+*.iml
+.vscode/
+
+# Build outputs
+build/
+*.js.map
+*.jit.dill
+
+# Flutter
+.flutter-plugins
+.flutter-plugins-dependencies
+*.lock
+
+# Environment files
+.env
+.env.local
+.env.*.local
+*.env
+
+# Firebase
+google-services.json
+GoogleService-Info.plist
+firebase-service-account.json
+
+# Uploads
+api/uploads/profiles/*
+api/uploads/incidents/*
+api/uploads/chat/*
+api/uploads/documents/*
+!api/uploads/.gitkeep
+!api/uploads/*/.gitkeep
+
+# Logs
+*.log
+logs/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Test coverage
+coverage/
+.nyc_output/
+
+# Temporary files
+*.tmp
+*.temp
+.cache/
+
+# Generated files
+*.g.dart
+*.freezed.dart
+
+# Secrets
+*.pem
+*.key
+credentials.json
