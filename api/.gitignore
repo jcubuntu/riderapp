@@ -84,6 +84,9 @@ secrets/
 *.secret
 
 # Database
-*.sql
 *.sqlite
 *.db
+
+# SQL files (except migrations)
+*.sql
+!src/database/migrations/*.sql
