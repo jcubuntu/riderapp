@@ -55,34 +55,34 @@ abstract final class SocketEvents {
   // ============================================================================
 
   /// Join a conversation room
-  static const String joinConversation = 'chat:join';
+  static const String joinConversation = 'conversation:join';
 
   /// Leave a conversation room
-  static const String leaveConversation = 'chat:leave';
+  static const String leaveConversation = 'conversation:leave';
 
   /// Send a new message
-  static const String sendMessage = 'chat:send';
+  static const String sendMessage = 'message:new';
 
   /// New message received
-  static const String newMessage = 'chat:message';
+  static const String newMessage = 'message:new';
 
   /// User is typing in a conversation
-  static const String typing = 'chat:typing';
+  static const String typing = 'typing:start';
 
   /// User stopped typing
-  static const String stopTyping = 'chat:stop_typing';
+  static const String stopTyping = 'typing:stop';
 
   /// Someone is typing (received)
-  static const String userTyping = 'chat:user_typing';
+  static const String userTyping = 'typing:start';
 
   /// Someone stopped typing (received)
-  static const String userStoppedTyping = 'chat:user_stopped_typing';
+  static const String userStoppedTyping = 'typing:stop';
 
   /// Messages have been read
-  static const String messagesRead = 'chat:read';
+  static const String messagesRead = 'messages:read';
 
   /// Message read receipt received
-  static const String messageReadReceipt = 'chat:read_receipt';
+  static const String messageReadReceipt = 'message:read';
 
   /// Conversation updated (new message, etc.)
   static const String conversationUpdated = 'chat:conversation_updated';

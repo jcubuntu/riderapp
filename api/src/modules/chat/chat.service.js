@@ -1,6 +1,7 @@
 'use strict';
 
 const chatRepository = require('./chat.repository');
+const socketManager = require('../../socket/socket.manager');
 
 /**
  * Chat Service - Business logic for chat/messaging
@@ -234,7 +235,20 @@ const sendMessage = async (conversationId, data, currentUser) => {
   // Update sender's last read timestamp
   await chatRepository.updateLastRead(conversationId, currentUser.id);
 
-  return formatMessage(message);
+  const formattedMessage = formatMessage(message);
+
+  // Emit to Socket.IO for real-time delivery to other participants
+  socketManager.emitToRoom(
+    `conversation:${conversationId}`,
+    'message:new',
+    {
+      conversationId,
+      message: formattedMessage,
+      timestamp: new Date().toISOString(),
+    }
+  );
+
+  return formattedMessage;
 };
 
 /**
